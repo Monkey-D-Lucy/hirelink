@@ -5,7 +5,7 @@ import {
   FiEdit2, FiSave, FiX, FiCamera, FiMapPin,
   FiBriefcase, FiMail, FiPhone, FiLink,
   FiGithub, FiLinkedin, FiAward, FiBookOpen,
-  FiGlobe, FiUpload, FiCheckCircle
+  FiGlobe, FiUpload, FiCheckCircle, FiEye, FiDownload
 } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
