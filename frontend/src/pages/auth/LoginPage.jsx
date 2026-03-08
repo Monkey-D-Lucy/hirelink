@@ -328,8 +328,9 @@ const LoginPage = () => {
           'Login as Employer'}
           </button>
 
-          <div>
+          {/* Divider and Social Login */}
             <Divider>OR</Divider>
+            
             <SocialButton
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -339,8 +340,6 @@ const LoginPage = () => {
               <img src="https://www.google.com/favicon.ico" alt="Google" />
               Continue with Google
             </SocialButton>
-          </div>
-
 
           <RegisterLink>
             Don't have an account?
