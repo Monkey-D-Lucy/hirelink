@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiBriefcase, FiMapPin, FiClock, FiDollarSign,
-  FiCheckCircle, FiXCircle, FiEye, FiCalendar
+  FiCheckCircle, FiXCircle, FiEye, FiCalendar,
+  FiFilter
 } from 'react-icons/fi';
 import API from '../../services/api';
 import { theme } from '../../styles/theme';
+import toast from 'react-hot-toast';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -44,15 +46,15 @@ const FilterTabs = styled.div`
 
 const FilterTab = styled(motion.button)`
   padding: ${theme.spacing.sm} ${theme.spacing.lg};
-  background: ${props => props.active ? theme.colors.primary : theme.colors.surface};
-  color: ${props => props.active ? 'white' : theme.colors.text.secondary};
+  background: ${props => props.$active ? theme.colors.primary : theme.colors.surface};
+  color: ${props => props.$active ? 'white' : theme.colors.text.secondary};
   border: 1px solid ${theme.colors.border};
   border-radius: ${theme.borderRadius.medium};
   font-weight: 500;
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${props => props.active ? theme.colors.primary : theme.colors.background};
+    background: ${props => props.$active ? theme.colors.primary : theme.colors.background};
   }
 `;
 
@@ -101,6 +103,16 @@ const ApplicationCard = styled(motion.div)`
   display: flex;
   flex-direction: column;
   gap: ${theme.spacing.md};
+  border-left: 4px solid ${props => {
+    switch(props.$status) {
+      case 'pending': return '#F59E0B';
+      case 'reviewed': return '#3B82F6';
+      case 'shortlisted': return '#10B981';
+      case 'rejected': return '#EF4444';
+      case 'hired': return '#10B981';
+      default: return theme.colors.border;
+    }
+  }};
 
   @media (min-width: ${theme.breakpoints.md}) {
     flex-direction: row;
@@ -116,9 +128,10 @@ const JobInfo = styled.div`
     font-size: 18px;
     margin-bottom: ${theme.spacing.xs};
     cursor: pointer;
+    color: ${theme.colors.primary};
 
     &:hover {
-      color: ${theme.colors.primary};
+      color: ${theme.colors.secondary};
     }
   }
 
@@ -157,7 +170,7 @@ const StatusBadge = styled.span`
   font-size: 12px;
   font-weight: 600;
   background: ${props => {
-    switch(props.status) {
+    switch(props.$status) {
       case 'pending': return '#FEF3C7';
       case 'reviewed': return '#DBEAFE';
       case 'shortlisted': return '#D1FAE5';
@@ -167,7 +180,7 @@ const StatusBadge = styled.span`
     }
   }};
   color: ${props => {
-    switch(props.status) {
+    switch(props.$status) {
       case 'pending': return '#92400E';
       case 'reviewed': return '#1E40AF';
       case 'shortlisted': return '#065F46';
@@ -207,6 +220,8 @@ const NoApplications = styled.div`
   padding: ${theme.spacing.xxl};
   background: ${theme.colors.surface};
   border-radius: ${theme.borderRadius.large};
+  max-width: 600px;
+  margin: 0 auto;
 
   svg {
     font-size: 60px;
@@ -215,8 +230,9 @@ const NoApplications = styled.div`
   }
 
   h3 {
-    font-size: 20px;
+    font-size: 24px;
     margin-bottom: ${theme.spacing.sm};
+    color: ${theme.colors.text.primary};
   }
 
   p {
@@ -230,11 +246,18 @@ const NoApplications = styled.div`
     color: white;
     padding: ${theme.spacing.md} ${theme.spacing.xl};
     border-radius: ${theme.borderRadius.medium};
-    font-weight: 500;
+    font-weight: 600;
+    transition: ${theme.transitions.base};
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: ${theme.shadows.primary};
+    }
   }
 `;
 
 const Applications = () => {
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -242,6 +265,7 @@ const Applications = () => {
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
+    reviewed: 0,
     shortlisted: 0,
     rejected: 0,
     hired: 0
@@ -249,6 +273,10 @@ const Applications = () => {
 
   useEffect(() => {
     fetchApplications();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchApplications, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -257,21 +285,25 @@ const Applications = () => {
 
   const fetchApplications = async () => {
     try {
+      setLoading(true);
       const res = await API.get('/applications/my-applications');
-      setApplications(res.data);
+      const appsData = res.data.applications || res.data || [];
+      setApplications(appsData);
       
       const newStats = {
-        total: res.data.length,
-        pending: res.data.filter(a => a.status === 'pending').length,
-        shortlisted: res.data.filter(a => a.status === 'shortlisted').length,
-        rejected: res.data.filter(a => a.status === 'rejected').length,
-        hired: res.data.filter(a => a.status === 'hired').length
+        total: appsData.length,
+        pending: appsData.filter(a => a.status === 'pending').length,
+        reviewed: appsData.filter(a => a.status === 'reviewed').length,
+        shortlisted: appsData.filter(a => a.status === 'shortlisted').length,
+        rejected: appsData.filter(a => a.status === 'rejected').length,
+        hired: appsData.filter(a => a.status === 'hired').length
       };
       setStats(newStats);
       
       setLoading(false);
     } catch (error) {
       console.error('Error fetching applications:', error);
+      toast.error('Failed to load applications');
       setLoading(false);
     }
   };
@@ -284,11 +316,11 @@ const Applications = () => {
     }
   };
 
-  if (loading) {
+  if (loading && applications.length === 0) {
     return (
       <Container>
         <div style={{ textAlign: 'center', padding: theme.spacing.xl }}>
-          <div className="loading-spinner" />
+          Loading applications...
         </div>
       </Container>
     );
@@ -324,7 +356,7 @@ const Applications = () => {
 
           <FilterTabs>
             <FilterTab
-              active={activeFilter === 'all'}
+              $active={activeFilter === 'all'}
               onClick={() => setActiveFilter('all')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -332,7 +364,7 @@ const Applications = () => {
               All
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'pending'}
+              $active={activeFilter === 'pending'}
               onClick={() => setActiveFilter('pending')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -340,7 +372,7 @@ const Applications = () => {
               Pending
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'reviewed'}
+              $active={activeFilter === 'reviewed'}
               onClick={() => setActiveFilter('reviewed')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -348,7 +380,7 @@ const Applications = () => {
               Reviewed
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'shortlisted'}
+              $active={activeFilter === 'shortlisted'}
               onClick={() => setActiveFilter('shortlisted')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -356,7 +388,7 @@ const Applications = () => {
               Shortlisted
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'rejected'}
+              $active={activeFilter === 'rejected'}
               onClick={() => setActiveFilter('rejected')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -364,7 +396,7 @@ const Applications = () => {
               Rejected
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'hired'}
+              $active={activeFilter === 'hired'}
               onClick={() => setActiveFilter('hired')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -378,13 +410,14 @@ const Applications = () => {
               {filteredApplications.map((app, index) => (
                 <ApplicationCard
                   key={app.application_id}
+                  $status={app.status}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ delay: index * 0.05 }}
                 >
                   <JobInfo>
-                    <h3 onClick={() => window.location.href = `/job/${app.job_id}`}>
+                    <h3 onClick={() => navigate(`/job/${app.job_id}`)}>
                       {app.title}
                     </h3>
                     <h4>{app.company_name}</h4>
@@ -411,7 +444,7 @@ const Applications = () => {
                   </JobInfo>
 
                   <StatusInfo>
-                    <StatusBadge status={app.status}>
+                    <StatusBadge $status={app.status}>
                       {app.status.toUpperCase()}
                     </StatusBadge>
                     <AppliedDate>

@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
+// Middleware - FIXED: Use environment variable for CORS origin
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true
@@ -16,13 +16,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Session and Passport middleware
+// Session and Passport middleware - FIXED: Cookie settings for production
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // set to true if using HTTPS
+        secure: process.env.NODE_ENV === 'production', // true in production (HTTPS)
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
@@ -49,21 +50,23 @@ app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/messages', messageRoutes);
+// app.use('/api/messages', messageRoutes); // Comment out if not implemented
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Test route
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'HireLink 2.0 API is running',
+        message: 'HireLink API is running',
         version: '2.0',
-        status: 'active'
+        status: 'active',
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`API available at http://localhost:${PORT}`);
 });

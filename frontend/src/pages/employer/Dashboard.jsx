@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FiBriefcase, FiUsers, FiEye, FiClock, FiPlus, FiTrendingUp } from 'react-icons/fi';
+import { 
+  FiBriefcase, FiUsers, FiEye, FiClock, 
+  FiPlus, FiTrendingUp, FiUserCheck, FiXCircle 
+} from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
 import { theme } from '../../styles/theme';
+import toast from 'react-hot-toast';
 
 const Container = styled.div`
   min-height: 100vh;
   background: ${theme.colors.background};
   padding: 100px ${theme.spacing.xl} ${theme.spacing.xl};
+
+  @media (max-width: ${theme.breakpoints.md}) {
+    padding: 100px ${theme.spacing.md} ${theme.spacing.md};
+  }
 `;
 
 const Header = styled.div`
@@ -19,6 +27,8 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: ${theme.spacing.md};
 
   div {
     h1 {
@@ -42,10 +52,11 @@ const PostJobButton = styled(Link)`
   display: flex;
   align-items: center;
   gap: ${theme.spacing.sm};
-  transition: opacity 0.2s ease;
+  transition: ${theme.transitions.base};
 
   &:hover {
-    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: ${theme.shadows.primary};
   }
 `;
 
@@ -73,13 +84,19 @@ const StatCard = styled(motion.div)`
   display: flex;
   align-items: center;
   gap: ${theme.spacing.md};
+  transition: ${theme.transitions.base};
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: ${theme.shadows.medium};
+  }
 `;
 
 const StatIcon = styled.div`
   width: 50px;
   height: 50px;
   border-radius: ${theme.borderRadius.medium};
-  background: ${props => props.color || theme.colors.primary}10;
+  background: ${props => props.color || theme.colors.primary}15;
   color: ${props => props.color || theme.colors.primary};
   display: flex;
   align-items: center;
@@ -93,6 +110,7 @@ const StatInfo = styled.div`
   h3 {
     font-size: 28px;
     margin-bottom: ${theme.spacing.xs};
+    color: ${theme.colors.primary};
   }
 
   p {
@@ -148,7 +166,7 @@ const JobCard = styled(motion.div)`
   border-radius: ${theme.borderRadius.medium};
   margin-bottom: ${theme.spacing.md};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: ${theme.transitions.base};
 
   &:hover {
     border-color: ${theme.colors.primary};
@@ -166,6 +184,7 @@ const JobHeader = styled.div`
 const JobTitle = styled.h3`
   font-size: 16px;
   font-weight: 600;
+  color: ${theme.colors.text.primary};
 `;
 
 const JobMeta = styled.div`
@@ -208,7 +227,7 @@ const ChartBar = styled.div`
 
 const ChartFill = styled.div`
   height: 100%;
-  width: ${props => props.percentage}%;
+  width: ${props => props.percentage || 0}%;
   background: ${props => props.color || theme.colors.primary};
   border-radius: ${theme.borderRadius.small};
   transition: width 0.3s ease;
@@ -227,15 +246,25 @@ const ApplicantStage = styled.div`
 
   span:first-child {
     font-weight: 500;
+    color: ${theme.colors.text.primary};
   }
 
   span:last-child {
     color: ${theme.colors.text.secondary};
+    font-weight: 600;
   }
 `;
 
+const NoJobs = styled.div`
+  text-align: center;
+  padding: ${theme.spacing.xl};
+  color: ${theme.colors.text.light};
+`;
+
 const EmployerDashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplicants: 0,
@@ -243,58 +272,99 @@ const EmployerDashboard = () => {
     profileViews: 0
   });
   const [recentJobs, setRecentJobs] = useState([]);
-  const [applicantsByStage, setApplicantsByStage] = useState([
+  const [applicantStages, setApplicantStages] = useState([
     { stage: 'Pending', count: 0 },
     { stage: 'Reviewed', count: 0 },
     { stage: 'Shortlisted', count: 0 },
     { stage: 'Hired', count: 0 }
   ]);
-  const [loading, setLoading] = useState(true);
 
+  // Fetch data when component mounts
   useEffect(() => {
     fetchDashboardData();
+    
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const [jobsRes, analyticsRes] = await Promise.all([
-        API.get('/jobs/my-jobs'),
-        API.get('/analytics/employer')
-      ]);
-
-      const jobs = jobsRes.data;
+      setLoading(true);
+      
+      // Fetch jobs
+      const jobsRes = await API.get('/jobs/my-jobs');
+      const jobs = jobsRes.data.jobs || [];
       setRecentJobs(jobs.slice(0, 5));
       
+      // Calculate stats
+      const activeJobsCount = jobs.filter(j => j.is_active).length;
       const totalApplicants = jobs.reduce((sum, job) => sum + (job.applications_count || 0), 0);
       const newApplicants = jobs.reduce((sum, job) => sum + (job.new_applications || 0), 0);
-
+      
       setStats({
-        activeJobs: jobs.filter(j => j.is_active).length,
+        activeJobs: activeJobsCount,
         totalApplicants,
         newApplicants,
-        profileViews: analyticsRes.data?.profileViews || 0
+        profileViews: user?.profile?.profile_views || 0
       });
-
-      // This would come from API
-      setApplicantsByStage([
-        { stage: 'Pending', count: Math.round(totalApplicants * 0.4) },
-        { stage: 'Reviewed', count: Math.round(totalApplicants * 0.3) },
-        { stage: 'Shortlisted', count: Math.round(totalApplicants * 0.2) },
-        { stage: 'Hired', count: Math.round(totalApplicants * 0.1) }
-      ]);
-
-      setLoading(false);
+      
+      // Fetch analytics for applicant stages
+      try {
+        const analyticsRes = await API.get('/analytics/employer');
+        if (analyticsRes.data.success) {
+          const stages = analyticsRes.data.analytics?.statusBreakdown || [];
+          
+          const stageMap = {
+            'pending': 0,
+            'reviewed': 0,
+            'shortlisted': 0,
+            'hired': 0
+          };
+          
+          stages.forEach(item => {
+            stageMap[item.status?.toLowerCase() || ''] = item.count || 0;
+          });
+          
+          setApplicantStages([
+            { stage: 'Pending', count: stageMap.pending || 0 },
+            { stage: 'Reviewed', count: stageMap.reviewed || 0 },
+            { stage: 'Shortlisted', count: stageMap.shortlisted || 0 },
+            { stage: 'Hired', count: stageMap.hired || 0 }
+          ]);
+        }
+      } catch (analyticsError) {
+        console.log('Analytics not available yet');
+        // If analytics fails, calculate from jobs
+        calculateStagesFromJobs(jobs);
+      }
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  const calculateStagesFromJobs = (jobs) => {
+    // This is a fallback if analytics API is not available
+    const total = jobs.reduce((sum, job) => sum + (job.applications_count || 0), 0);
+    setApplicantStages([
+      { stage: 'Pending', count: Math.round(total * 0.4) },
+      { stage: 'Reviewed', count: Math.round(total * 0.3) },
+      { stage: 'Shortlisted', count: Math.round(total * 0.2) },
+      { stage: 'Hired', count: Math.round(total * 0.1) }
+    ]);
+  };
+
+  const totalApplicantsCount = applicantStages.reduce((sum, stage) => sum + stage.count, 0);
+
+  if (loading && recentJobs.length === 0) {
     return (
       <Container>
         <div style={{ textAlign: 'center', padding: theme.spacing.xl }}>
-          <div className="loading-spinner" />
+          Loading dashboard...
         </div>
       </Container>
     );
@@ -304,7 +374,7 @@ const EmployerDashboard = () => {
     <Container>
       <Header>
         <div>
-          <h1>Welcome back, {user?.profile?.full_name}!</h1>
+          <h1>Welcome back, {user?.profile?.full_name || 'Employer'}!</h1>
           <p>Here's what's happening with your job postings</p>
         </div>
         <PostJobButton to="/employer/post-job">
@@ -335,7 +405,7 @@ const EmployerDashboard = () => {
 
         <StatCard whileHover={{ y: -5 }}>
           <StatIcon color={theme.colors.warning}>
-            <FiClock />
+            <FiUserCheck />
           </StatIcon>
           <StatInfo>
             <h3>{stats.newApplicants}</h3>
@@ -362,9 +432,9 @@ const EmployerDashboard = () => {
           </SectionHeader>
 
           {recentJobs.length === 0 ? (
-            <p style={{ color: theme.colors.text.light, textAlign: 'center', padding: theme.spacing.xl }}>
-              No jobs posted yet. Post your first job!
-            </p>
+            <NoJobs>
+              <p>No jobs posted yet. Post your first job!</p>
+            </NoJobs>
           ) : (
             recentJobs.map((job, index) => (
               <JobCard
@@ -372,7 +442,7 @@ const EmployerDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => window.location.href = `/employer/applicants/${job.job_id}`}
+                onClick={() => navigate(`/employer/applicants/${job.job_id}`)}
               >
                 <JobHeader>
                   <JobTitle>{job.title}</JobTitle>
@@ -393,12 +463,18 @@ const EmployerDashboard = () => {
               <h2>Applicant Funnel</h2>
             </SectionHeader>
 
-            {applicantsByStage.map((stage, index) => (
-              <ApplicantStage key={stage.stage}>
-                <span>{stage.stage}</span>
-                <span>{stage.count}</span>
-              </ApplicantStage>
-            ))}
+            {totalApplicantsCount === 0 ? (
+              <NoJobs>
+                <p>No applicants yet</p>
+              </NoJobs>
+            ) : (
+              applicantStages.map((stage, index) => (
+                <ApplicantStage key={stage.stage}>
+                  <span>{stage.stage}</span>
+                  <span>{stage.count}</span>
+                </ApplicantStage>
+              ))
+            )}
           </Section>
 
           <Section>
@@ -409,22 +485,36 @@ const EmployerDashboard = () => {
             <ChartCard>
               <h4>Application Rate</h4>
               <ChartBar>
-                <ChartFill percentage={75} color={theme.colors.primary} />
+                <ChartFill 
+                  percentage={totalApplicantsCount > 0 ? 
+                    ((applicantStages.find(s => s.stage === 'Shortlisted')?.count || 0) / totalApplicantsCount) * 100 : 0} 
+                  color={theme.colors.success}
+                />
               </ChartBar>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span>This month</span>
-                <span>75%</span>
+                <span>Shortlisted</span>
+                <span>
+                  {totalApplicantsCount > 0 ? 
+                    Math.round(((applicantStages.find(s => s.stage === 'Shortlisted')?.count || 0) / totalApplicantsCount) * 100) : 0}%
+                </span>
               </div>
             </ChartCard>
 
             <ChartCard>
               <h4>Interview to Hire</h4>
               <ChartBar>
-                <ChartFill percentage={45} color={theme.colors.success} />
+                <ChartFill 
+                  percentage={totalApplicantsCount > 0 ? 
+                    ((applicantStages.find(s => s.stage === 'Hired')?.count || 0) / totalApplicantsCount) * 100 : 0} 
+                  color={theme.colors.primary}
+                />
               </ChartBar>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span>Conversion rate</span>
-                <span>45%</span>
+                <span>Hired</span>
+                <span>
+                  {totalApplicantsCount > 0 ? 
+                    Math.round(((applicantStages.find(s => s.stage === 'Hired')?.count || 0) / totalApplicantsCount) * 100) : 0}%
+                </span>
               </div>
             </ChartCard>
           </Section>

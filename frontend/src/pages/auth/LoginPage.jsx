@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { FiMail, FiLock, FiBriefcase, FiUser } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../styles/theme';
-import { FiSettings } from 'react-icons/fi';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -56,8 +55,8 @@ const Tab = styled.button`
   padding: ${theme.spacing.md} 0;
   font-size: 16px;
   font-weight: 600;
-  color: ${props => props.active ? theme.colors.primary : theme.colors.text.secondary};
-  border-bottom: 2px solid ${props => props.active ? theme.colors.primary : 'transparent'};
+  color: ${props => props.$active ? theme.colors.primary : theme.colors.text.secondary};
+  border-bottom: 2px solid ${props => props.$active ? theme.colors.primary : 'transparent'};
   margin-bottom: -2px;
   transition: all 0.2s ease;
   display: flex;
@@ -190,6 +189,10 @@ const SocialButton = styled(motion.button)`
     width: 20px;
     height: 20px;
   }
+
+  &:hover {
+    background: ${theme.colors.background};
+  }
 `;
 
 const RegisterLink = styled.div`
@@ -246,11 +249,20 @@ const LoginPage = () => {
     const result = await login(formData.email, formData.password, activeTab);
 
     if (result.success) {
-      navigate(`/${result.userType}/dashboard`);
+      // FIXED: Redirect based on user type to match your routes
+      if (result.userType === 'job_seeker') {
+        navigate('/seeker/dashboard');
+      } else {
+        navigate('/employer/dashboard');
+      }
     } else {
       setError(result.error);
     }
     setLoading(false);
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = 'http://localhost:5000/api/auth/google';
   };
 
   return (
@@ -267,18 +279,17 @@ const LoginPage = () => {
 
         <TabContainer>
           <Tab
-            active={activeTab === 'job_seeker'}
+            $active={activeTab === 'job_seeker'}
             onClick={() => setActiveTab('job_seeker')}
           >
             <FiUser /> Job Seeker
           </Tab>
           <Tab
-            active={activeTab === 'employer'}
+            $active={activeTab === 'employer'}
             onClick={() => setActiveTab('employer')}
           >
             <FiBriefcase /> Employer
           </Tab>
-          
         </TabContainer>
 
         <Form onSubmit={handleSubmit}>
@@ -317,29 +328,28 @@ const LoginPage = () => {
             </ForgotPassword>
           </InputGroup>
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-          {loading ? 'Logging in...' : 
-          activeTab === 'job_seeker' ? 'Login as Job Seeker' : 
-          'Login as Employer'}
-          </button>
+            {loading ? 'Logging in...' : 
+             activeTab === 'job_seeker' ? 'Login as Job Seeker' : 
+             'Login as Employer'}
+          </Button>
 
-          {/* Divider and Social Login */}
-            <Divider>OR</Divider>
-            
-            <SocialButton
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
-            >
-              <img src="https://www.google.com/favicon.ico" alt="Google" />
-              Continue with Google
-            </SocialButton>
+          <Divider>OR</Divider>
+
+          <SocialButton
+            type="button"
+            onClick={handleGoogleLogin}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <img src="https://www.google.com/favicon.ico" alt="Google" />
+            Continue with Google
+          </SocialButton>
 
           <RegisterLink>
             Don't have an account?

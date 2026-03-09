@@ -257,10 +257,12 @@ exports.updateProfile = async (req, res) => {
 
 // Upload image
 exports.uploadImage = (req, res) => {
-    const uploadSingle = upload.single(req.body.type === 'profile' ? 'profile_pic' : 'cover_image');
+    // Use a fixed field name - always 'profile_pic'
+    const uploadSingle = upload.single('profile_pic');
     
     uploadSingle(req, res, async (err) => {
         if (err) {
+            console.error('Multer error:', err);
             return res.status(400).json({ 
                 success: false, 
                 message: err.message 
@@ -268,6 +270,7 @@ exports.uploadImage = (req, res) => {
         }
         
         if (!req.file) {
+            console.error('No file in request');
             return res.status(400).json({ 
                 success: false, 
                 message: 'No file uploaded' 
@@ -291,16 +294,15 @@ exports.uploadImage = (req, res) => {
             }
             
             const userType = users[0].user_type;
-            const field = req.body.type === 'profile' ? 'profile_pic_url' : 'cover_image_url';
             
             if (userType === 'job_seeker') {
                 await db.query(
-                    `UPDATE job_seekers SET ${field} = ? WHERE user_id = ?`,
+                    'UPDATE job_seekers SET profile_pic_url = ? WHERE user_id = ?',
                     [fileUrl, userId]
                 );
             } else if (userType === 'employer') {
                 await db.query(
-                    `UPDATE employers SET ${field} = ? WHERE user_id = ?`,
+                    'UPDATE employers SET profile_pic_url = ? WHERE user_id = ?',
                     [fileUrl, userId]
                 );
             }
@@ -312,7 +314,7 @@ exports.uploadImage = (req, res) => {
             });
             
         } catch (error) {
-            console.error('Upload error:', error);
+            console.error('Database error:', error);
             res.status(500).json({ 
                 success: false, 
                 message: 'Server error' 
@@ -320,6 +322,53 @@ exports.uploadImage = (req, res) => {
         }
     });
 };
+
+// ============= ADD THIS MISSING FUNCTION =============
+// Upload resume
+exports.uploadResume = (req, res) => {
+    const uploadSingle = upload.single('resume');
+    
+    uploadSingle(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ 
+                success: false, 
+                message: err.message 
+            });
+        }
+        
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No file uploaded' 
+            });
+        }
+        
+        try {
+            const userId = req.user.user_id;
+            const fileUrl = `${req.protocol}://${req.get('host')}/${req.file.path}`;
+            
+            // Update job_seekers table
+            await db.query(
+                'UPDATE job_seekers SET resume_url = ? WHERE user_id = ?',
+                [fileUrl, userId]
+            );
+            
+            res.json({
+                success: true,
+                message: 'Resume uploaded successfully',
+                url: fileUrl
+            });
+            
+        } catch (error) {
+            console.error('Resume upload error:', error);
+            res.status(500).json({ 
+                success: false, 
+                message: 'Server error' 
+            });
+        }
+    });
+};
+// =====================================================
 
 // Change password
 exports.changePassword = async (req, res) => {

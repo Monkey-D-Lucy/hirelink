@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import GlobalStyles from './styles/GlobalStyles';
+import HomePage from './pages/HomePage';
 
 // Layout Components
 import Navbar from './components/layout/Navbar';
@@ -31,6 +32,7 @@ import CompanyProfile from './pages/employer/CompanyProfile';
 // Common Components
 import PrivateRoute from './components/common/PrivateRoute';
 import AuthSuccess from './pages/auth/AuthSuccess';
+import Notifications from './pages/Notifications';
 
 function App() {
   return (
@@ -63,11 +65,21 @@ function App() {
         />
         <Navbar />
         <Routes>
+          {/* HOME PAGE - MUST BE FIRST */}
+          <Route path="/" element={<HomePage />} />
+          
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/jobs" element={<JobListings />} />
           <Route path="/job/:id" element={<JobDetail />} />
+          
+          {/* Notifications route */}
+          <Route path="/notifications" element={
+            <PrivateRoute>
+              <Notifications />
+            </PrivateRoute>
+          } />
           
           {/* Job Seeker routes */}
           <Route path="/seeker/dashboard" element={
@@ -123,10 +135,11 @@ function App() {
             </PrivateRoute>
           } />
 
-          {/* Redirects */}
-          <Route path="/" element={<Navigate to="/jobs" />} />
-          <Route path="*" element={<Navigate to="/jobs" />} />
+          {/* Auth success route */}
           <Route path="/auth/success" element={<AuthSuccess />} />
+
+          {/* Catch-all - Keep this LAST */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <Footer />
       </Router>

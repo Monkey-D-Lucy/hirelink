@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiMenu, FiX, FiBell, FiUser, FiLogOut, FiBriefcase, FiHome } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../styles/theme';
+import API from '../../services/api';
 
 const Nav = styled(motion.nav)`
   position: fixed;
@@ -163,6 +164,31 @@ const DropdownItem = styled(Link)`
   padding: ${theme.spacing.md};
   color: ${theme.colors.text.primary};
   transition: background 0.2s ease;
+  text-decoration: none;
+
+  &:hover {
+    background: ${theme.colors.background};
+  }
+
+  svg {
+    font-size: 18px;
+    color: ${theme.colors.text.secondary};
+  }
+`;
+
+const DropdownButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
+  padding: ${theme.spacing.md};
+  color: ${theme.colors.text.primary};
+  transition: background 0.2s ease;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
 
   &:hover {
     background: ${theme.colors.background};
@@ -223,11 +249,44 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [notifications] = useState(3); // This would come from API
+  const [notifications, setNotifications] = useState(0);
+
+  // Fetch notifications when user is logged in
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      
+      // Refresh notifications every 30 seconds
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await API.get('/notifications');
+      if (res.data.success) {
+        setNotifications(res.data.unreadCount || 0);
+      }
+    } catch (error) {
+      // Silently fail - notifications endpoint might not exist yet
+      console.log('Notifications not available yet');
+      setNotifications(0);
+    }
+  };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleNotificationClick = () => {
+    // Check if notifications page exists, if not, just show message
+    try {
+      navigate('/notifications');
+    } catch (error) {
+      alert('Notifications feature coming soon!');
+    }
   };
 
   return (
@@ -257,7 +316,7 @@ const Navbar = () => {
               <IconButton
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/notifications')}
+                onClick={handleNotificationClick}
               >
                 <FiBell />
                 {notifications > 0 && (
@@ -272,7 +331,7 @@ const Navbar = () => {
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
                   <FiUser />
-                  <span>{user?.profile?.full_name?.split(' ')[0]}</span>
+                  <span>{user?.profile?.full_name?.split(' ')[0] || 'User'}</span>
                 </UserButton>
 
                 <AnimatePresence>
@@ -282,20 +341,21 @@ const Navbar = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                     >
-                      <DropdownItem to={`/${user.user_type}/profile`}>
+                      {/* FIXED: Correct paths based on user type */}
+                      <DropdownItem to={user?.user_type === 'job_seeker' ? '/seeker/profile' : '/employer/profile'}>
                         <FiUser /> Profile
                       </DropdownItem>
-                      <DropdownItem to={`/${user.user_type}/dashboard`}>
+                      <DropdownItem to={user?.user_type === 'job_seeker' ? '/seeker/dashboard' : '/employer/dashboard'}>
                         <FiHome /> Dashboard
                       </DropdownItem>
-                      {user.user_type === 'employer' && (
+                      {user?.user_type === 'employer' && (
                         <DropdownItem to="/employer/post-job">
                           <FiBriefcase /> Post Job
                         </DropdownItem>
                       )}
-                      <DropdownItem as="button" onClick={handleLogout}>
+                      <DropdownButton onClick={handleLogout}>
                         <FiLogOut /> Logout
-                      </DropdownItem>
+                      </DropdownButton>
                     </DropdownMenu>
                   )}
                 </AnimatePresence>

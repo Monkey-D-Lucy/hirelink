@@ -173,6 +173,14 @@ const ContactInfo = styled.div`
     color: ${theme.colors.text.secondary};
     font-size: 14px;
   }
+
+  a {
+    color: ${theme.colors.primary};
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 `;
 
 const Section = styled.div`
@@ -211,6 +219,9 @@ const SkillTag = styled.span`
   border-radius: ${theme.borderRadius.medium};
   font-size: 14px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: ${theme.spacing.xs};
 `;
 
 const ExperienceItem = styled.div`
@@ -384,10 +395,32 @@ const StrengthBar = styled.div`
 
 const StrengthFill = styled.div`
   height: 100%;
-  width: ${props => props.percentage}%;
+  width: ${props => props.percentage || 0}%;
   background: ${theme.gradients.primary};
   border-radius: ${theme.borderRadius.small};
   transition: width 0.3s ease;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: ${theme.spacing.sm};
+  margin-top: ${theme.spacing.sm};
+`;
+
+const ActionButton = styled(motion.button)`
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  border-radius: ${theme.borderRadius.medium};
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.xs};
+  background: ${theme.colors.primary}10;
+  color: ${theme.colors.primary};
+
+  &:hover {
+    background: ${theme.colors.primary}20;
+  }
 `;
 
 const SeekerProfile = () => {
@@ -402,23 +435,23 @@ const SeekerProfile = () => {
   useEffect(() => {
     if (user?.profile) {
       setProfile(user.profile);
-      setSkills(user.profile.skills?.split(',').map(s => s.trim()) || []);
+      setSkills(user.profile.skills?.split(',').map(s => s.trim()).filter(s => s) || []);
     }
   }, [user]);
 
   const calculateProfileStrength = () => {
     let strength = 0;
-    if (profile.full_name) strength += 15;
-    if (profile.headline) strength += 15;
-    if (profile.about) strength += 20;
+    if (profile?.full_name) strength += 15;
+    if (profile?.headline) strength += 15;
+    if (profile?.about) strength += 20;
     if (skills.length > 0) strength += 20;
-    if (profile.resume_url) strength += 15;
-    if (profile.profile_pic_url) strength += 15;
+    if (profile?.resume_url) strength += 15;
+    if (profile?.profile_pic_url) strength += 15;
     return strength;
   };
 
   const handleEdit = (section) => {
-    setFormData(profile);
+    setFormData(profile || {});
     setEditing(section);
   };
 
@@ -436,7 +469,8 @@ const SeekerProfile = () => {
       toast.success('Profile updated successfully');
       setEditing(null);
     } catch (error) {
-      toast.error('Error updating profile');
+      console.error('Save error:', error);
+      toast.error(error.response?.data?.message || 'Error updating profile');
     } finally {
       setLoading(false);
     }
@@ -454,22 +488,25 @@ const SeekerProfile = () => {
   };
 
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const formData = new FormData();
-    formData.append('profile_pic', file);
+  const formData = new FormData();
+  formData.append('profile_pic', file);  // Keep this exact field name
+  // REMOVE the 'type' field - we don't need it anymore
 
-    try {
-      const res = await API.post('/users/upload-profile-pic', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setProfile({ ...profile, profile_pic_url: res.data.url });
-      toast.success('Profile picture updated');
-    } catch (error) {
-      toast.error('Error uploading image');
-    }
-  };
+  try {
+    const res = await API.post('/users/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    
+    setProfile(prev => ({ ...prev, profile_pic_url: res.data.url }));
+    toast.success('Profile picture updated');
+  } catch (error) {
+    console.error('Upload error:', error.response?.data);
+    toast.error(error.response?.data?.message || 'Error uploading image');
+  }
+};
 
   const handleResumeUpload = async (e) => {
     const file = e.target.files[0];
@@ -482,10 +519,18 @@ const SeekerProfile = () => {
       const res = await API.post('/users/upload-resume', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setProfile({ ...profile, resume_url: res.data.url });
+      
+      setProfile(prev => ({ ...prev, resume_url: res.data.url }));
       toast.success('Resume uploaded successfully');
     } catch (error) {
-      toast.error('Error uploading resume');
+      console.error('Resume upload error:', error);
+      toast.error(error.response?.data?.message || 'Error uploading resume');
+    }
+  };
+
+  const handleDownloadResume = () => {
+    if (profile?.resume_url) {
+      window.open(profile.resume_url, '_blank');
     }
   };
 
@@ -502,15 +547,16 @@ const SeekerProfile = () => {
           <AvatarSection>
             <AvatarWrapper>
               <Avatar>
-                {profile.profile_pic_url ? (
-                  <img src={profile.profile_pic_url} alt={profile.full_name} />
+                {profile?.profile_pic_url ? (
+                  <img src={profile.profile_pic_url} alt={profile?.full_name || 'User'} />
                 ) : (
-                  profile.full_name?.[0] || 'U'
+                  profile?.full_name?.[0]?.toUpperCase() || 'U'
                 )}
               </Avatar>
               <AvatarOverlay
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                as="label"
               >
                 <FiCamera />
                 <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -519,7 +565,7 @@ const SeekerProfile = () => {
 
             <ProfileTitle>
               <h1>
-                {profile.full_name || 'Your Name'}
+                {profile?.full_name || 'Your Name'}
                 <EditButton
                   onClick={() => handleEdit('basic')}
                   whileHover={{ scale: 1.05 }}
@@ -528,7 +574,7 @@ const SeekerProfile = () => {
                   <FiEdit2 /> Edit Profile
                 </EditButton>
               </h1>
-              <h2>{profile.headline || 'Add a professional headline'}</h2>
+              <h2>{profile?.headline || 'Add a professional headline'}</h2>
             </ProfileTitle>
           </AvatarSection>
 
@@ -541,37 +587,37 @@ const SeekerProfile = () => {
 
           <ProfileStats>
             <StatItem>
-              <span>{profile.profile_views || 0}</span>
+              <span>{profile?.profile_views || 0}</span>
               <small>Profile Views</small>
             </StatItem>
             <StatItem>
-              <span>{profile.applications_count || 0}</span>
+              <span>{profile?.applications_count || 0}</span>
               <small>Applications</small>
             </StatItem>
             <StatItem>
-              <span>{profile.saved_jobs_count || 0}</span>
+              <span>{profile?.saved_jobs_count || 0}</span>
               <small>Saved Jobs</small>
             </StatItem>
           </ProfileStats>
 
           <ContactInfo>
-            {profile.location && (
+            {profile?.location && (
               <span><FiMapPin /> {profile.location}</span>
             )}
-            {profile.email && (
-              <span><FiMail /> {profile.email}</span>
+            {user?.email && (
+              <span><FiMail /> {user.email}</span>
             )}
-            {profile.phone && (
+            {profile?.phone && (
               <span><FiPhone /> {profile.phone}</span>
             )}
-            {profile.linkedin_url && (
-              <span><FiLinkedin /> <a href={profile.linkedin_url} target="_blank">LinkedIn</a></span>
+            {profile?.linkedin_url && (
+              <span><FiLinkedin /> <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer">LinkedIn</a></span>
             )}
-            {profile.github_url && (
-              <span><FiGithub /> <a href={profile.github_url} target="_blank">GitHub</a></span>
+            {profile?.github_url && (
+              <span><FiGithub /> <a href={profile.github_url} target="_blank" rel="noopener noreferrer">GitHub</a></span>
             )}
-            {profile.portfolio_url && (
-              <span><FiLink /> <a href={profile.portfolio_url} target="_blank">Portfolio</a></span>
+            {profile?.portfolio_url && (
+              <span><FiLink /> <a href={profile.portfolio_url} target="_blank" rel="noopener noreferrer">Portfolio</a></span>
             )}
           </ContactInfo>
         </ProfileHeader>
@@ -588,7 +634,7 @@ const SeekerProfile = () => {
             </EditButton>
           </SectionHeader>
           <p style={{ lineHeight: 1.6, color: theme.colors.text.secondary }}>
-            {profile.about || 'Add a brief description about yourself, your experience, and your career goals.'}
+            {profile?.about || 'Add a brief description about yourself, your experience, and your career goals.'}
           </p>
         </Section>
 
@@ -625,7 +671,7 @@ const SeekerProfile = () => {
               <FiEdit2 /> Add Experience
             </EditButton>
           </SectionHeader>
-          {profile.experience ? (
+          {profile?.experience ? (
             <ExperienceItem>
               <h4>{profile.experience.position}</h4>
               <h5>{profile.experience.company}</h5>
@@ -641,21 +687,21 @@ const SeekerProfile = () => {
           <SectionHeader>
             <h3><FiUpload /> Resume</h3>
           </SectionHeader>
-          {profile.resume_url ? (
+          {profile?.resume_url ? (
             <div>
               <p style={{ color: theme.colors.success, marginBottom: theme.spacing.md }}>
                 <FiCheckCircle /> Resume uploaded
               </p>
               <ActionButtons>
                 <ActionButton
-                  onClick={() => window.open(profile.resume_url)}
+                  onClick={() => window.open(profile.resume_url, '_blank')}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <FiEye /> View
                 </ActionButton>
                 <ActionButton
-                  onClick={() => {/* Download resume */}}
+                  onClick={handleDownloadResume}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -680,11 +726,13 @@ const SeekerProfile = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => setEditing(null)}
           >
             <EditCard
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
             >
               <h3>Edit {editing === 'basic' ? 'Basic Information' : 
                          editing === 'about' ? 'About' : 
@@ -696,7 +744,7 @@ const SeekerProfile = () => {
                     <label>Full Name</label>
                     <input
                       type="text"
-                      value={formData.full_name || ''}
+                      value={formData?.full_name || ''}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     />
                   </FormGroup>
@@ -704,7 +752,7 @@ const SeekerProfile = () => {
                     <label>Headline</label>
                     <input
                       type="text"
-                      value={formData.headline || ''}
+                      value={formData?.headline || ''}
                       onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
                       placeholder="e.g., Senior Software Engineer at Google"
                     />
@@ -713,7 +761,7 @@ const SeekerProfile = () => {
                     <label>Location</label>
                     <input
                       type="text"
-                      value={formData.location || ''}
+                      value={formData?.location || ''}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       placeholder="e.g., Mumbai, India"
                     />
@@ -722,7 +770,7 @@ const SeekerProfile = () => {
                     <label>Phone</label>
                     <input
                       type="tel"
-                      value={formData.phone || ''}
+                      value={formData?.phone || ''}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </FormGroup>
@@ -730,7 +778,7 @@ const SeekerProfile = () => {
                     <label>LinkedIn URL</label>
                     <input
                       type="url"
-                      value={formData.linkedin_url || ''}
+                      value={formData?.linkedin_url || ''}
                       onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
                     />
                   </FormGroup>
@@ -738,7 +786,7 @@ const SeekerProfile = () => {
                     <label>GitHub URL</label>
                     <input
                       type="url"
-                      value={formData.github_url || ''}
+                      value={formData?.github_url || ''}
                       onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
                     />
                   </FormGroup>
@@ -746,7 +794,7 @@ const SeekerProfile = () => {
                     <label>Portfolio URL</label>
                     <input
                       type="url"
-                      value={formData.portfolio_url || ''}
+                      value={formData?.portfolio_url || ''}
                       onChange={(e) => setFormData({ ...formData, portfolio_url: e.target.value })}
                     />
                   </FormGroup>
@@ -757,7 +805,7 @@ const SeekerProfile = () => {
                 <FormGroup>
                   <label>About</label>
                   <textarea
-                    value={formData.about || ''}
+                    value={formData?.about || ''}
                     onChange={(e) => setFormData({ ...formData, about: e.target.value })}
                     placeholder="Tell us about yourself..."
                     rows="6"
@@ -773,9 +821,16 @@ const SeekerProfile = () => {
                         {skill}
                         <button
                           onClick={() => handleRemoveSkill(skill)}
-                          style={{ marginLeft: theme.spacing.xs, color: 'inherit' }}
+                          style={{ 
+                            marginLeft: theme.spacing.xs, 
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                          }}
                         >
-                          <FiX />
+                          <FiX size={14} />
                         </button>
                       </SkillTag>
                     ))}
@@ -795,6 +850,7 @@ const SeekerProfile = () => {
                         onClick={handleAddSkill}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
+                        style={{ padding: theme.spacing.sm }}
                       >
                         Add
                       </SaveButton>
@@ -809,10 +865,10 @@ const SeekerProfile = () => {
                     <label>Position</label>
                     <input
                       type="text"
-                      value={formData.experience?.position || ''}
+                      value={formData?.experience?.position || ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        experience: { ...formData.experience, position: e.target.value }
+                        experience: { ...formData?.experience, position: e.target.value }
                       })}
                     />
                   </FormGroup>
@@ -820,10 +876,10 @@ const SeekerProfile = () => {
                     <label>Company</label>
                     <input
                       type="text"
-                      value={formData.experience?.company || ''}
+                      value={formData?.experience?.company || ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        experience: { ...formData.experience, company: e.target.value }
+                        experience: { ...formData?.experience, company: e.target.value }
                       })}
                     />
                   </FormGroup>
@@ -831,10 +887,10 @@ const SeekerProfile = () => {
                     <label>Duration</label>
                     <input
                       type="text"
-                      value={formData.experience?.duration || ''}
+                      value={formData?.experience?.duration || ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        experience: { ...formData.experience, duration: e.target.value }
+                        experience: { ...formData?.experience, duration: e.target.value }
                       })}
                       placeholder="e.g., 2020 - Present"
                     />
@@ -842,10 +898,10 @@ const SeekerProfile = () => {
                   <FormGroup>
                     <label>Description</label>
                     <textarea
-                      value={formData.experience?.description || ''}
+                      value={formData?.experience?.description || ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        experience: { ...formData.experience, description: e.target.value }
+                        experience: { ...formData?.experience, description: e.target.value }
                       })}
                       rows="4"
                     />
@@ -877,28 +933,5 @@ const SeekerProfile = () => {
     </Container>
   );
 };
-
-// Styled components for action buttons (reused from Applicants page)
-const ActionButtons = styled.div`
-  display: flex;
-  gap: ${theme.spacing.sm};
-  margin-top: ${theme.spacing.sm};
-`;
-
-const ActionButton = styled(motion.button)`
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border-radius: ${theme.borderRadius.medium};
-  font-size: 13px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.xs};
-  background: ${theme.colors.primary}10;
-  color: ${theme.colors.primary};
-
-  &:hover {
-    background: ${theme.colors.primary}20;
-  }
-`;
 
 export default SeekerProfile;

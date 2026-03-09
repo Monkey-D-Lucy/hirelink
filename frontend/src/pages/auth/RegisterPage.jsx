@@ -410,7 +410,9 @@ const RegisterPage = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {loading ? 'Creating account...' : `Create ${activeTab === 'job_seeker' ? 'Job Seeker' : 'Employer'} Account`}
+          {loading ? 'Creating account...' : 
+            activeTab === 'job_seeker' ? 'Create Job Seeker Account' : 
+            'Create Employer Account'}
           </Button>
 
           <LoginLink>

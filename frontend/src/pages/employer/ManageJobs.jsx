@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiBriefcase, FiMapPin, FiClock, FiUsers,
   FiEdit2, FiTrash2, FiEye, FiEyeOff,
-  FiCopy, FiMoreVertical, FiPlus
+  FiCopy, FiMoreVertical, FiPlus, FiX, FiSave
 } from 'react-icons/fi';
 import API from '../../services/api';
 import { theme } from '../../styles/theme';
@@ -27,6 +27,8 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: ${theme.spacing.md};
 
   div {
     h1 {
@@ -50,10 +52,11 @@ const PostJobButton = styled(Link)`
   display: flex;
   align-items: center;
   gap: ${theme.spacing.sm};
-  transition: opacity 0.2s ease;
+  transition: ${theme.transitions.base};
 
   &:hover {
-    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: ${theme.shadows.primary};
   }
 `;
 
@@ -97,15 +100,15 @@ const FilterTabs = styled.div`
 
 const FilterTab = styled(motion.button)`
   padding: ${theme.spacing.sm} ${theme.spacing.lg};
-  background: ${props => props.active ? theme.colors.primary : theme.colors.surface};
-  color: ${props => props.active ? 'white' : theme.colors.text.secondary};
+  background: ${props => props.$active ? theme.colors.primary : theme.colors.surface};
+  color: ${props => props.$active ? 'white' : theme.colors.text.secondary};
   border: 1px solid ${theme.colors.border};
   border-radius: ${theme.borderRadius.medium};
   font-weight: 500;
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${props => props.active ? theme.colors.primary : theme.colors.background};
+    background: ${props => props.$active ? theme.colors.primary : theme.colors.background};
   }
 `;
 
@@ -121,6 +124,7 @@ const JobCard = styled(motion.div)`
   margin-bottom: ${theme.spacing.md};
   box-shadow: ${theme.shadows.small};
   position: relative;
+  border-left: 4px solid ${props => props.$active ? theme.colors.success : theme.colors.border};
 `;
 
 const JobHeader = styled.div`
@@ -128,16 +132,21 @@ const JobHeader = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: ${theme.spacing.md};
+  flex-wrap: wrap;
+  gap: ${theme.spacing.md};
 `;
 
 const JobTitle = styled.div`
+  flex: 1;
+
   h3 {
     font-size: 18px;
     margin-bottom: ${theme.spacing.xs};
     cursor: pointer;
+    color: ${theme.colors.primary};
 
     &:hover {
-      color: ${theme.colors.primary};
+      color: ${theme.colors.secondary};
     }
   }
 
@@ -152,8 +161,8 @@ const StatusBadge = styled.span`
   border-radius: ${theme.borderRadius.small};
   font-size: 12px;
   font-weight: 500;
-  background: ${props => props.active ? theme.colors.success + '20' : theme.colors.error + '20'};
-  color: ${props => props.active ? theme.colors.success : theme.colors.error};
+  background: ${props => props.$active ? theme.colors.success + '20' : theme.colors.error + '20'};
+  color: ${props => props.$active ? theme.colors.success : theme.colors.error};
 `;
 
 const JobMeta = styled.div`
@@ -202,13 +211,14 @@ const StatItem = styled.div`
 const ActionButtons = styled.div`
   display: flex;
   gap: ${theme.spacing.sm};
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: ${theme.spacing.md};
 `;
 
 const ActionButton = styled(motion.button)`
   padding: ${theme.spacing.sm} ${theme.spacing.md};
   border-radius: ${theme.borderRadius.medium};
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -216,7 +226,7 @@ const ActionButton = styled(motion.button)`
   transition: all 0.2s ease;
 
   ${props => {
-    switch(props.variant) {
+    switch(props.$variant) {
       case 'edit':
         return `
           background: ${theme.colors.primary}10;
@@ -239,12 +249,14 @@ const ActionButton = styled(motion.button)`
         return `
           background: ${theme.colors.background};
           color: ${theme.colors.text.secondary};
+          border: 1px solid ${theme.colors.border};
           &:hover { background: ${theme.colors.border}; }
         `;
       default:
         return `
           background: ${theme.colors.background};
           color: ${theme.colors.text.secondary};
+          border: 1px solid ${theme.colors.border};
           &:hover { background: ${theme.colors.border}; }
         `;
     }
@@ -277,21 +289,18 @@ const DropdownMenu = styled(motion.div)`
 
 const DropdownItem = styled.button`
   width: 100%;
-  padding: ${theme.spacing.md} ${theme.spacing.xl};
+  padding: ${theme.spacing.md} ${theme.spacing.lg};
   text-align: left;
-  color: ${theme.colors.text.primary};
+  color: ${props => props.$delete ? theme.colors.error : theme.colors.text.primary};
   transition: background 0.2s ease;
   display: flex;
   align-items: center;
   gap: ${theme.spacing.sm};
+  font-size: 14px;
 
   &:hover {
     background: ${theme.colors.background};
   }
-
-  ${props => props.delete && `
-    color: ${theme.colors.error};
-  `}
 `;
 
 const NoJobs = styled.div`
@@ -299,6 +308,8 @@ const NoJobs = styled.div`
   padding: ${theme.spacing.xxl};
   background: ${theme.colors.surface};
   border-radius: ${theme.borderRadius.large};
+  max-width: 600px;
+  margin: 0 auto;
 
   svg {
     font-size: 60px;
@@ -307,8 +318,9 @@ const NoJobs = styled.div`
   }
 
   h3 {
-    font-size: 20px;
+    font-size: 24px;
     margin-bottom: ${theme.spacing.sm};
+    color: ${theme.colors.text.primary};
   }
 
   p {
@@ -322,7 +334,130 @@ const NoJobs = styled.div`
     color: white;
     padding: ${theme.spacing.md} ${theme.spacing.xl};
     border-radius: ${theme.borderRadius.medium};
+    font-weight: 600;
+    transition: ${theme.transitions.base};
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: ${theme.shadows.primary};
+    }
+  }
+`;
+
+// Edit Modal Components
+const ModalOverlay = styled(motion.div)`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: ${theme.spacing.xl};
+`;
+
+const ModalContent = styled(motion.div)`
+  background: ${theme.colors.surface};
+  border-radius: ${theme.borderRadius.large};
+  padding: ${theme.spacing.xl};
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: ${theme.spacing.lg};
+
+  h2 {
+    font-size: 24px;
+    color: ${theme.colors.primary};
+  }
+
+  button {
+    color: ${theme.colors.text.light};
+    font-size: 24px;
+
+    &:hover {
+      color: ${theme.colors.error};
+    }
+  }
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: ${theme.spacing.lg};
+
+  label {
+    display: block;
+    font-size: 14px;
     font-weight: 500;
+    color: ${theme.colors.text.secondary};
+    margin-bottom: ${theme.spacing.sm};
+  }
+
+  input, textarea, select {
+    width: 100%;
+    padding: ${theme.spacing.md};
+    border: 1px solid ${theme.colors.border};
+    border-radius: ${theme.borderRadius.medium};
+    font-size: 15px;
+    font-family: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: ${theme.colors.primary};
+    }
+  }
+
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+`;
+
+const FormRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${theme.spacing.md};
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  gap: ${theme.spacing.md};
+  justify-content: flex-end;
+  margin-top: ${theme.spacing.xl};
+`;
+
+const SaveButton = styled(motion.button)`
+  padding: ${theme.spacing.md} ${theme.spacing.xl};
+  background: ${theme.gradients.primary};
+  color: white;
+  border-radius: ${theme.borderRadius.medium};
+  font-weight: 600;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const CancelButton = styled(motion.button)`
+  padding: ${theme.spacing.md} ${theme.spacing.xl};
+  background: transparent;
+  color: ${theme.colors.text.secondary};
+  border: 1px solid ${theme.colors.border};
+  border-radius: ${theme.borderRadius.medium};
+  font-weight: 600;
+
+  &:hover {
+    background: ${theme.colors.background};
   }
 `;
 
@@ -333,6 +468,9 @@ const ManageJobs = () => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingJob, setEditingJob] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -350,20 +488,23 @@ const ManageJobs = () => {
 
   const fetchJobs = async () => {
     try {
+      setLoading(true);
       const res = await API.get('/jobs/my-jobs');
-      setJobs(res.data);
+      const jobsData = res.data.jobs || res.data || [];
+      setJobs(jobsData);
       
       const newStats = {
-        total: res.data.length,
-        active: res.data.filter(j => j.is_active).length,
-        expired: res.data.filter(j => !j.is_active || new Date(j.expiry_date) < new Date()).length,
-        totalApplicants: res.data.reduce((sum, job) => sum + (job.applications_count || 0), 0)
+        total: jobsData.length,
+        active: jobsData.filter(j => j.is_active).length,
+        expired: jobsData.filter(j => !j.is_active || new Date(j.expiry_date) < new Date()).length,
+        totalApplicants: jobsData.reduce((sum, job) => sum + (job.applications_count || 0), 0)
       };
       setStats(newStats);
       
       setLoading(false);
     } catch (error) {
       console.error('Error fetching jobs:', error);
+      toast.error('Failed to load jobs');
       setLoading(false);
     }
   };
@@ -404,6 +545,46 @@ const ManageJobs = () => {
     }
   };
 
+  const handleEditClick = (job) => {
+    setEditingJob(job);
+    setEditFormData({
+      title: job.title || '',
+      description: job.description || '',
+      requirements: job.requirements || '',
+      location: job.location || '',
+      salary_min: job.salary_min || '',
+      salary_max: job.salary_max || '',
+      job_type: job.job_type || 'full_time',
+      expiry_date: job.expiry_date ? job.expiry_date.split('T')[0] : ''
+    });
+  };
+
+  const handleEditChange = (e) => {
+    setEditFormData({
+      ...editFormData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleEditSave = async () => {
+    setSaving(true);
+    try {
+      await API.put(`/jobs/${editingJob.job_id}`, editFormData);
+      
+      // Update local state
+      setJobs(jobs.map(job => 
+        job.job_id === editingJob.job_id ? { ...job, ...editFormData } : job
+      ));
+      
+      toast.success('Job updated successfully');
+      setEditingJob(null);
+    } catch (error) {
+      toast.error('Error updating job');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDuplicateJob = async (job) => {
     try {
       const duplicateData = {
@@ -423,11 +604,15 @@ const ManageJobs = () => {
     }
   };
 
+  const handleViewApplicants = (jobId) => {
+    navigate(`/employer/applicants/${jobId}`);
+  };
+
   if (loading) {
     return (
       <Container>
         <div style={{ textAlign: 'center', padding: theme.spacing.xl }}>
-          <div className="loading-spinner" />
+          Loading jobs...
         </div>
       </Container>
     );
@@ -445,7 +630,7 @@ const ManageJobs = () => {
         </PostJobButton>
       </Header>
 
-      {jobs.length > 0 ? (
+      {jobs.length > 0 && (
         <>
           <StatsGrid>
             <StatCard>
@@ -468,7 +653,7 @@ const ManageJobs = () => {
 
           <FilterTabs>
             <FilterTab
-              active={activeFilter === 'all'}
+              $active={activeFilter === 'all'}
               onClick={() => setActiveFilter('all')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -476,7 +661,7 @@ const ManageJobs = () => {
               All Jobs
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'active'}
+              $active={activeFilter === 'active'}
               onClick={() => setActiveFilter('active')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -484,7 +669,7 @@ const ManageJobs = () => {
               Active
             </FilterTab>
             <FilterTab
-              active={activeFilter === 'expired'}
+              $active={activeFilter === 'expired'}
               onClick={() => setActiveFilter('expired')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -492,123 +677,263 @@ const ManageJobs = () => {
               Expired
             </FilterTab>
           </FilterTabs>
-
-          <JobsList>
-            <AnimatePresence>
-              {filteredJobs.map((job, index) => (
-                <JobCard
-                  key={job.job_id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <JobHeader>
-                    <JobTitle>
-                      <h3 onClick={() => navigate(`/employer/applicants/${job.job_id}`)}>
-                        {job.title}
-                      </h3>
-                      <p>Posted on {new Date(job.created_at).toLocaleDateString()}</p>
-                    </JobTitle>
-                    <StatusBadge active={job.is_active}>
-                      {job.is_active ? 'Active' : 'Inactive'}
-                    </StatusBadge>
-                  </JobHeader>
-
-                  <JobMeta>
-                    <MetaItem>
-                      <FiMapPin /> {job.location || 'Remote'}
-                    </MetaItem>
-                    <MetaItem>
-                      <FiBriefcase /> {job.job_type?.replace('_', ' ')}
-                    </MetaItem>
-                    <MetaItem>
-                      <FiClock /> Expires: {new Date(job.expiry_date).toLocaleDateString()}
-                    </MetaItem>
-                  </JobMeta>
-
-                  <StatsRow>
-                    <StatItem>
-                      <span>{job.applications_count || 0}</span>
-                      <small>Applicants</small>
-                    </StatItem>
-                    <StatItem>
-                      <span>{job.views_count || 0}</span>
-                      <small>Views</small>
-                    </StatItem>
-                  </StatsRow>
-
-                  <ActionButtons>
-                    <ActionButton
-                      variant="view"
-                      onClick={() => navigate(`/employer/applicants/${job.job_id}`)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <FiUsers /> View Applicants
-                    </ActionButton>
-                    <ActionButton
-                      variant="edit"
-                      onClick={() => navigate(`/employer/edit-job/${job.job_id}`)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <FiEdit2 /> Edit
-                    </ActionButton>
-                    <ActionButton
-                      variant="toggle"
-                      onClick={() => handleToggleStatus(job.job_id, job.is_active)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {job.is_active ? <FiEyeOff /> : <FiEye />}
-                      {job.is_active ? 'Deactivate' : 'Activate'}
-                    </ActionButton>
-                    <ActionButton
-                      variant="delete"
-                      onClick={() => handleDeleteJob(job.job_id)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <FiTrash2 /> Delete
-                    </ActionButton>
-                  </ActionButtons>
-
-                  <MenuButton
-                    onClick={() => setOpenMenuId(openMenuId === job.job_id ? null : job.job_id)}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <FiMoreVertical />
-                  </MenuButton>
-
-                  {openMenuId === job.job_id && (
-                    <DropdownMenu
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                    >
-                      <DropdownItem onClick={() => handleDuplicateJob(job)}>
-                        <FiCopy /> Duplicate
-                      </DropdownItem>
-                      <DropdownItem delete onClick={() => handleDeleteJob(job.job_id)}>
-                        <FiTrash2 /> Delete
-                      </DropdownItem>
-                    </DropdownMenu>
-                  )}
-                </JobCard>
-              ))}
-            </AnimatePresence>
-          </JobsList>
         </>
-      ) : (
-        <NoJobs>
-          <FiBriefcase />
-          <h3>No jobs posted yet</h3>
-          <p>Post your first job to start receiving applications</p>
-          <Link to="/employer/post-job">Post a Job</Link>
-        </NoJobs>
       )}
+
+      <JobsList>
+        <AnimatePresence>
+          {filteredJobs.length === 0 ? (
+            <NoJobs>
+              <FiBriefcase />
+              <h3>No jobs posted yet</h3>
+              <p>Post your first job to start receiving applications</p>
+              <Link to="/employer/post-job">Post a Job</Link>
+            </NoJobs>
+          ) : (
+            filteredJobs.map((job, index) => (
+              <JobCard
+                key={job.job_id}
+                $active={job.is_active}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <JobHeader>
+                  <JobTitle>
+                    <h3 onClick={() => handleViewApplicants(job.job_id)}>
+                      {job.title}
+                    </h3>
+                    <p>Posted on {new Date(job.created_at).toLocaleDateString()}</p>
+                  </JobTitle>
+                  <StatusBadge $active={job.is_active}>
+                    {job.is_active ? 'Active' : 'Inactive'}
+                  </StatusBadge>
+                </JobHeader>
+
+                <JobMeta>
+                  <MetaItem>
+                    <FiMapPin /> {job.location || 'Remote'}
+                  </MetaItem>
+                  <MetaItem>
+                    <FiBriefcase /> {job.job_type?.replace('_', ' ')}
+                  </MetaItem>
+                  <MetaItem>
+                    <FiClock /> Expires: {new Date(job.expiry_date).toLocaleDateString()}
+                  </MetaItem>
+                </JobMeta>
+
+                <StatsRow>
+                  <StatItem>
+                    <span>{job.applications_count || 0}</span>
+                    <small>Applicants</small>
+                  </StatItem>
+                  <StatItem>
+                    <span>{job.views_count || 0}</span>
+                    <small>Views</small>
+                  </StatItem>
+                </StatsRow>
+
+                <ActionButtons>
+                  <ActionButton
+                    $variant="view"
+                    onClick={() => handleViewApplicants(job.job_id)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiUsers /> View Applicants
+                  </ActionButton>
+                  <ActionButton
+                    $variant="edit"
+                    onClick={() => handleEditClick(job)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiEdit2 /> Edit
+                  </ActionButton>
+                  <ActionButton
+                    $variant="toggle"
+                    onClick={() => handleToggleStatus(job.job_id, job.is_active)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {job.is_active ? <FiEyeOff /> : <FiEye />}
+                    {job.is_active ? 'Deactivate' : 'Activate'}
+                  </ActionButton>
+                  <ActionButton
+                    $variant="delete"
+                    onClick={() => handleDeleteJob(job.job_id)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiTrash2 /> Delete
+                  </ActionButton>
+                </ActionButtons>
+
+                <MenuButton
+                  onClick={() => setOpenMenuId(openMenuId === job.job_id ? null : job.job_id)}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <FiMoreVertical />
+                </MenuButton>
+
+                {openMenuId === job.job_id && (
+                  <DropdownMenu
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <DropdownItem onClick={() => handleDuplicateJob(job)}>
+                      <FiCopy /> Duplicate
+                    </DropdownItem>
+                    <DropdownItem $delete onClick={() => handleDeleteJob(job.job_id)}>
+                      <FiTrash2 /> Delete
+                    </DropdownItem>
+                  </DropdownMenu>
+                )}
+              </JobCard>
+            ))
+          )}
+        </AnimatePresence>
+      </JobsList>
+
+      {/* Edit Job Modal */}
+      <AnimatePresence>
+        {editingJob && (
+          <ModalOverlay
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setEditingJob(null)}
+          >
+            <ModalContent
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalHeader>
+                <h2>Edit Job</h2>
+                <button onClick={() => setEditingJob(null)}>
+                  <FiX />
+                </button>
+              </ModalHeader>
+
+              <FormGroup>
+                <label>Job Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={editFormData.title}
+                  onChange={handleEditChange}
+                  placeholder="e.g., Senior Software Engineer"
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  value={editFormData.description}
+                  onChange={handleEditChange}
+                  rows="4"
+                  placeholder="Describe the role, responsibilities..."
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <label>Requirements</label>
+                <textarea
+                  name="requirements"
+                  value={editFormData.requirements}
+                  onChange={handleEditChange}
+                  rows="3"
+                  placeholder="List the required qualifications..."
+                />
+              </FormGroup>
+
+              <FormGroup>
+                <label>Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={editFormData.location}
+                  onChange={handleEditChange}
+                  placeholder="e.g., Mumbai, Remote"
+                />
+              </FormGroup>
+
+              <FormRow>
+                <FormGroup>
+                  <label>Min Salary</label>
+                  <input
+                    type="number"
+                    name="salary_min"
+                    value={editFormData.salary_min}
+                    onChange={handleEditChange}
+                    placeholder="Min"
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <label>Max Salary</label>
+                  <input
+                    type="number"
+                    name="salary_max"
+                    value={editFormData.salary_max}
+                    onChange={handleEditChange}
+                    placeholder="Max"
+                  />
+                </FormGroup>
+              </FormRow>
+
+              <FormGroup>
+                <label>Job Type</label>
+                <select
+                  name="job_type"
+                  value={editFormData.job_type}
+                  onChange={handleEditChange}
+                >
+                  <option value="full_time">Full Time</option>
+                  <option value="part_time">Part Time</option>
+                  <option value="contract">Contract</option>
+                  <option value="internship">Internship</option>
+                  <option value="remote">Remote</option>
+                </select>
+              </FormGroup>
+
+              <FormGroup>
+                <label>Expiry Date</label>
+                <input
+                  type="date"
+                  name="expiry_date"
+                  value={editFormData.expiry_date}
+                  onChange={handleEditChange}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </FormGroup>
+
+              <ModalActions>
+                <CancelButton
+                  onClick={() => setEditingJob(null)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Cancel
+                </CancelButton>
+                <SaveButton
+                  onClick={handleEditSave}
+                  disabled={saving}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <FiSave /> {saving ? 'Saving...' : 'Save Changes'}
+                </SaveButton>
+              </ModalActions>
+            </ModalContent>
+          </ModalOverlay>
+        )}
+      </AnimatePresence>
     </Container>
   );
 };

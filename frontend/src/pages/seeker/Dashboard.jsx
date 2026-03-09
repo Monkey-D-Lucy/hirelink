@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FiBriefcase, FiCheckCircle, FiClock, FiXCircle, FiEye, FiTrendingUp } from 'react-icons/fi';
+import { 
+  FiBriefcase, FiCheckCircle, FiClock, FiXCircle, 
+  FiEye, FiTrendingUp, FiUser, FiAward 
+} from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
 import { theme } from '../../styles/theme';
+import toast from 'react-hot-toast';
 
 const Container = styled.div`
   min-height: 100vh;
   background: ${theme.colors.background};
   padding: 100px ${theme.spacing.xl} ${theme.spacing.xl};
+
+  @media (max-width: ${theme.breakpoints.md}) {
+    padding: 100px ${theme.spacing.md} ${theme.spacing.md};
+  }
 `;
 
 const Header = styled.div`
@@ -53,7 +61,7 @@ const StatCard = styled(motion.div)`
   align-items: center;
   gap: ${theme.spacing.md};
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: ${theme.transitions.base};
 
   &:hover {
     transform: translateY(-5px);
@@ -65,8 +73,8 @@ const StatIcon = styled.div`
   width: 50px;
   height: 50px;
   border-radius: ${theme.borderRadius.medium};
-  background: ${props => props.color || theme.colors.primary}10;
-  color: ${props => props.color || theme.colors.primary};
+  background: ${props => props.$color || theme.colors.primary}15;
+  color: ${props => props.$color || theme.colors.primary};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -79,6 +87,7 @@ const StatInfo = styled.div`
   h3 {
     font-size: 28px;
     margin-bottom: ${theme.spacing.xs};
+    color: ${theme.colors.primary};
   }
 
   p {
@@ -134,7 +143,7 @@ const JobCard = styled(motion.div)`
   border-radius: ${theme.borderRadius.medium};
   margin-bottom: ${theme.spacing.md};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: ${theme.transitions.base};
 
   &:hover {
     border-color: ${theme.colors.primary};
@@ -152,6 +161,7 @@ const JobHeader = styled.div`
 const JobTitle = styled.h3`
   font-size: 16px;
   font-weight: 600;
+  color: ${theme.colors.text.primary};
 `;
 
 const JobCompany = styled.p`
@@ -173,7 +183,7 @@ const StatusBadge = styled.span`
   font-size: 12px;
   font-weight: 500;
   background: ${props => {
-    switch(props.status) {
+    switch(props.$status) {
       case 'pending': return '#FEF3C7';
       case 'reviewed': return '#DBEAFE';
       case 'shortlisted': return '#D1FAE5';
@@ -183,7 +193,7 @@ const StatusBadge = styled.span`
     }
   }};
   color: ${props => {
-    switch(props.status) {
+    switch(props.$status) {
       case 'pending': return '#92400E';
       case 'reviewed': return '#1E40AF';
       case 'shortlisted': return '#065F46';
@@ -217,8 +227,8 @@ const ChartBar = styled.div`
 
 const ChartFill = styled.div`
   height: 100%;
-  width: ${props => props.percentage}%;
-  background: ${props => props.color || theme.colors.primary};
+  width: ${props => props.$percentage || 0}%;
+  background: ${props => props.$color || theme.colors.primary};
   border-radius: ${theme.borderRadius.small};
   transition: width 0.3s ease;
 `;
@@ -244,52 +254,83 @@ const ProfileStrengthCard = styled.div`
     padding: ${theme.spacing.sm} ${theme.spacing.lg};
     border-radius: ${theme.borderRadius.medium};
     font-weight: 500;
+    transition: ${theme.transitions.base};
 
     &:hover {
-      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: ${theme.shadows.primary};
     }
   }
 `;
 
+const NoData = styled.div`
+  text-align: center;
+  padding: ${theme.spacing.xl};
+  color: ${theme.colors.text.light};
+`;
+
 const SeekerDashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalApplications: 0,
     pending: 0,
     shortlisted: 0,
     rejected: 0,
+    hired: 0,
     profileViews: 0
   });
   const [recentApplications, setRecentApplications] = useState([]);
   const [recommendedJobs, setRecommendedJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const [appsRes, jobsRes] = await Promise.all([
-        API.get('/applications/my-applications'),
-        API.get('/jobs/recommended')
-      ]);
-
-      const applications = appsRes.data;
+      setLoading(true);
+      
+      // Fetch applications
+      const appsRes = await API.get('/applications/my-applications');
+      const applications = appsRes.data.applications || appsRes.data || [];
       setRecentApplications(applications.slice(0, 5));
       
+      // Calculate stats
+      const totalApps = applications.length;
+      const pendingApps = applications.filter(a => a.status === 'pending').length;
+      const shortlistedApps = applications.filter(a => a.status === 'shortlisted').length;
+      const rejectedApps = applications.filter(a => a.status === 'rejected').length;
+      const hiredApps = applications.filter(a => a.status === 'hired').length;
+      
       setStats({
-        totalApplications: applications.length,
-        pending: applications.filter(a => a.status === 'pending').length,
-        shortlisted: applications.filter(a => a.status === 'shortlisted').length,
-        rejected: applications.filter(a => a.status === 'rejected').length,
-        profileViews: 127 // This would come from analytics API
+        totalApplications: totalApps,
+        pending: pendingApps,
+        shortlisted: shortlistedApps,
+        rejected: rejectedApps,
+        hired: hiredApps,
+        profileViews: user?.profile?.profile_views || 127
       });
-
-      setRecommendedJobs(jobsRes.data.slice(0, 5));
-      setLoading(false);
+      
+      // Fetch recommended jobs
+      try {
+        const jobsRes = await API.get('/jobs/recommended');
+        const jobs = jobsRes.data.jobs || jobsRes.data || [];
+        setRecommendedJobs(jobs.slice(0, 5));
+      } catch (jobError) {
+        console.log('Recommended jobs not available');
+        setRecommendedJobs([]);
+      }
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
       setLoading(false);
     }
   };
@@ -310,11 +351,11 @@ const SeekerDashboard = () => {
 
   const profileStrength = calculateProfileStrength();
 
-  if (loading) {
+  if (loading && recentApplications.length === 0) {
     return (
       <Container>
         <div style={{ textAlign: 'center', padding: theme.spacing.xl }}>
-          <div className="loading-spinner" />
+          Loading dashboard...
         </div>
       </Container>
     );
@@ -323,16 +364,16 @@ const SeekerDashboard = () => {
   return (
     <Container>
       <Header>
-        <h1>Welcome back, {user?.profile?.full_name}!</h1>
+        <h1>Welcome back, {user?.profile?.full_name || 'Seeker'}!</h1>
         <p>Here's what's happening with your job search</p>
       </Header>
 
       <StatsGrid>
         <StatCard
           whileHover={{ y: -5 }}
-          onClick={() => window.location.href = '/seeker/applications'}
+          onClick={() => navigate('/seeker/applications')}
         >
-          <StatIcon color={theme.colors.primary}>
+          <StatIcon $color={theme.colors.primary}>
             <FiBriefcase />
           </StatIcon>
           <StatInfo>
@@ -343,9 +384,9 @@ const SeekerDashboard = () => {
 
         <StatCard
           whileHover={{ y: -5 }}
-          onClick={() => window.location.href = '/seeker/applications?status=pending'}
+          onClick={() => navigate('/seeker/applications?status=pending')}
         >
-          <StatIcon color={theme.colors.warning}>
+          <StatIcon $color={theme.colors.warning}>
             <FiClock />
           </StatIcon>
           <StatInfo>
@@ -356,9 +397,9 @@ const SeekerDashboard = () => {
 
         <StatCard
           whileHover={{ y: -5 }}
-          onClick={() => window.location.href = '/seeker/applications?status=shortlisted'}
+          onClick={() => navigate('/seeker/applications?status=shortlisted')}
         >
-          <StatIcon color={theme.colors.success}>
+          <StatIcon $color={theme.colors.success}>
             <FiCheckCircle />
           </StatIcon>
           <StatInfo>
@@ -369,9 +410,9 @@ const SeekerDashboard = () => {
 
         <StatCard
           whileHover={{ y: -5 }}
-          onClick={() => window.location.href = '/seeker/analytics'}
+          onClick={() => navigate('/seeker/profile')}
         >
-          <StatIcon color={theme.colors.accent}>
+          <StatIcon $color={theme.colors.accent}>
             <FiEye />
           </StatIcon>
           <StatInfo>
@@ -389,9 +430,9 @@ const SeekerDashboard = () => {
           </SectionHeader>
 
           {recentApplications.length === 0 ? (
-            <p style={{ color: theme.colors.text.light, textAlign: 'center', padding: theme.spacing.xl }}>
-              No applications yet. Start applying to jobs!
-            </p>
+            <NoData>
+              <p>No applications yet. Start applying to jobs!</p>
+            </NoData>
           ) : (
             recentApplications.map((app, index) => (
               <JobCard
@@ -399,11 +440,11 @@ const SeekerDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => window.location.href = `/job/${app.job_id}`}
+                onClick={() => navigate(`/job/${app.job_id}`)}
               >
                 <JobHeader>
                   <JobTitle>{app.title}</JobTitle>
-                  <StatusBadge status={app.status}>
+                  <StatusBadge $status={app.status}>
                     {app.status}
                   </StatusBadge>
                 </JobHeader>
@@ -428,24 +469,33 @@ const SeekerDashboard = () => {
               <h4>Application Status</h4>
               <ChartBar>
                 <ChartFill 
-                  percentage={(stats.shortlisted / stats.totalApplications * 100) || 0}
-                  color={theme.colors.success}
+                  $percentage={stats.totalApplications > 0 ? (stats.shortlisted / stats.totalApplications) * 100 : 0}
+                  $color={theme.colors.success}
                 />
               </ChartBar>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                 <span>Shortlisted: {stats.shortlisted}</span>
-                <span>{((stats.shortlisted / stats.totalApplications * 100) || 0).toFixed(1)}%</span>
+                <span>
+                  {stats.totalApplications > 0 ? 
+                    ((stats.shortlisted / stats.totalApplications) * 100).toFixed(1) : 0}%
+                </span>
               </div>
             </ChartCard>
 
             <ChartCard>
-              <h4>Response Rate</h4>
+              <h4>Success Rate</h4>
               <ChartBar>
-                <ChartFill percentage={65} color={theme.colors.secondary} />
+                <ChartFill 
+                  $percentage={stats.totalApplications > 0 ? (stats.hired / stats.totalApplications) * 100 : 0}
+                  $color={theme.colors.primary}
+                />
               </ChartBar>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span>Reviewed: {stats.totalApplications - stats.pending}</span>
-                <span>65%</span>
+                <span>Hired: {stats.hired}</span>
+                <span>
+                  {stats.totalApplications > 0 ? 
+                    ((stats.hired / stats.totalApplications) * 100).toFixed(1) : 0}%
+                </span>
               </div>
             </ChartCard>
           </Section>
@@ -458,7 +508,7 @@ const SeekerDashboard = () => {
             <ProfileStrengthCard>
               <h3>{profileStrength}%</h3>
               <p>Complete your profile to get noticed by employers</p>
-              <button onClick={() => window.location.href = '/seeker/profile'}>
+              <button onClick={() => navigate('/seeker/profile')}>
                 Complete Profile
               </button>
             </ProfileStrengthCard>
@@ -466,32 +516,34 @@ const SeekerDashboard = () => {
         </div>
       </ContentGrid>
 
-      <Section style={{ maxWidth: '1400px', margin: `${theme.spacing.xl} auto 0` }}>
-        <SectionHeader>
-          <h2>Recommended Jobs</h2>
-          <Link to="/jobs">View all</Link>
-        </SectionHeader>
+      {recommendedJobs.length > 0 && (
+        <Section style={{ maxWidth: '1400px', margin: `${theme.spacing.xl} auto 0` }}>
+          <SectionHeader>
+            <h2>Recommended Jobs</h2>
+            <Link to="/jobs">View all</Link>
+          </SectionHeader>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: theme.spacing.md }}>
-          {recommendedJobs.map((job, index) => (
-            <JobCard
-              key={job.job_id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => window.location.href = `/job/${job.job_id}`}
-              style={{ marginBottom: 0 }}
-            >
-              <JobTitle>{job.title}</JobTitle>
-              <JobCompany>{job.company_name}</JobCompany>
-              <JobMeta>
-                <span>📍 {job.location || 'Remote'}</span>
-                <span>💰 ₹{job.salary_min?.toLocaleString()}</span>
-              </JobMeta>
-            </JobCard>
-          ))}
-        </div>
-      </Section>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: theme.spacing.md }}>
+            {recommendedJobs.map((job, index) => (
+              <JobCard
+                key={job.job_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => navigate(`/job/${job.job_id}`)}
+                style={{ marginBottom: 0 }}
+              >
+                <JobTitle>{job.title}</JobTitle>
+                <JobCompany>{job.company_name}</JobCompany>
+                <JobMeta>
+                  <span>📍 {job.location || 'Remote'}</span>
+                  <span>💰 ₹{job.salary_min?.toLocaleString()}</span>
+                </JobMeta>
+              </JobCard>
+            ))}
+          </div>
+        </Section>
+      )}
     </Container>
   );
 };

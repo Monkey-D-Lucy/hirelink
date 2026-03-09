@@ -58,7 +58,7 @@ exports.getAllJobs = async (req, res) => {
         
         const [jobs] = await db.query(query, queryParams);
         
-        // Get total count for pagination
+        // Get total count for pagination - FIXED: Use parameterized query
         let countQuery = `
             SELECT COUNT(*) as total 
             FROM jobs j
@@ -67,25 +67,35 @@ exports.getAllJobs = async (req, res) => {
             WHERE j.is_active = 1 AND j.expiry_date > NOW()
         `;
         
-        if (search || location || jobType || salaryMin || salaryMax || experienceLevel) {
-            // Rebuild count query with same filters
-            countQuery = `
-                SELECT COUNT(*) as total 
-                FROM jobs j
-                JOIN employers e ON j.employer_id = e.employer_id
-                JOIN companies c ON e.company_id = c.company_id
-                WHERE j.is_active = 1 AND j.expiry_date > NOW()
-            `;
-            
-            if (search) countQuery += ` AND (j.title LIKE '%${search}%' OR j.description LIKE '%${search}%' OR c.company_name LIKE '%${search}%')`;
-            if (location) countQuery += ` AND j.location LIKE '%${location}%'`;
-            if (jobType) countQuery += ` AND j.job_type = '${jobType}'`;
-            if (salaryMin) countQuery += ` AND j.salary_min >= ${parseInt(salaryMin)}`;
-            if (salaryMax) countQuery += ` AND j.salary_max <= ${parseInt(salaryMax)}`;
-            if (experienceLevel) countQuery += ` AND j.experience_required <= ${parseInt(experienceLevel)}`;
+        const countParams = [];
+        
+        if (search) {
+            countQuery += ` AND (j.title LIKE ? OR j.description LIKE ? OR c.company_name LIKE ?)`;
+            const searchTerm = `%${search}%`;
+            countParams.push(searchTerm, searchTerm, searchTerm);
+        }
+        if (location) {
+            countQuery += ` AND j.location LIKE ?`;
+            countParams.push(`%${location}%`);
+        }
+        if (jobType) {
+            countQuery += ` AND j.job_type = ?`;
+            countParams.push(jobType);
+        }
+        if (salaryMin) {
+            countQuery += ` AND j.salary_min >= ?`;
+            countParams.push(parseInt(salaryMin));
+        }
+        if (salaryMax) {
+            countQuery += ` AND j.salary_max <= ?`;
+            countParams.push(parseInt(salaryMax));
+        }
+        if (experienceLevel) {
+            countQuery += ` AND j.experience_required <= ?`;
+            countParams.push(parseInt(experienceLevel));
         }
         
-        const [countResult] = await db.query(countQuery);
+        const [countResult] = await db.query(countQuery, countParams);
         const totalJobs = countResult[0].total;
         const totalPages = Math.ceil(totalJobs / limit);
         
@@ -109,11 +119,19 @@ exports.getAllJobs = async (req, res) => {
     }
 };
 
-// Get job by ID
+// Get job by ID - FIXED: Added check for 'my-jobs'
 exports.getJobById = async (req, res) => {
     try {
         const jobId = req.params.id;
         const userId = req.user?.user_id;
+        
+        // FIX: Prevent 'my-jobs' from being treated as a job ID
+        if (jobId === 'my-jobs' || jobId === 'recommended' || jobId === 'saved') {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Invalid job ID' 
+            });
+        }
         
         // Increment view count
         await db.query(
@@ -181,7 +199,7 @@ exports.getJobById = async (req, res) => {
                AND j.job_id != ?
                AND (j.title LIKE ? OR j.skills_required LIKE ? OR c.industry = ?)
              LIMIT 5`,
-            [jobId, `%${job.title.split(' ')[0]}%`, `%${job.skills_required}%`, job.industry]
+            [jobId, `%${job.title?.split(' ')[0] || ''}%`, `%${job.skills_required || ''}%`, job.industry || '']
         );
         
         res.json({
@@ -250,33 +268,6 @@ exports.createJob = async (req, res) => {
              salary_min || null, salary_max || null, salary_currency || 'INR', location,
              job_type, experience_required || 0, skills_required, benefits, expiry]
         );
-        
-        // Create notification for matching job seekers (optional)
-        if (skills_required) {
-            const skills = skills_required.split(',').map(s => s.trim());
-            
-            for (const skill of skills) {
-                const [matchingSeekers] = await db.query(
-                    `SELECT DISTINCT js.seeker_id, js.user_id
-                     FROM job_seekers js
-                     JOIN seeker_skills ss ON js.seeker_id = ss.seeker_id
-                     JOIN skills s ON ss.skill_id = s.skill_id
-                     WHERE s.skill_name LIKE ?`,
-                    [`%${skill}%`]
-                );
-                
-                for (const seeker of matchingSeekers) {
-                    await db.query(
-                        `INSERT INTO notifications 
-                         (user_id, title, message, type, link)
-                         VALUES (?, ?, ?, ?, ?)`,
-                        [seeker.user_id, 'New Job Match', 
-                         `A new job "${title}" matches your skills`, 'job',
-                         `/job/${result.insertId}`]
-                    );
-                }
-            }
-        }
         
         res.status(201).json({
             success: true,
