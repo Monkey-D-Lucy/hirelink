@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMenu, FiX, FiBell, FiUser, FiLogOut, FiBriefcase, FiHome } from 'react-icons/fi';
+import { FiMenu, FiX, FiBell, FiUser, FiLogOut, FiBriefcase, FiHome, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../styles/theme';
 import API from '../../services/api';
@@ -250,6 +250,37 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState(0);
+  const dropdownRef = useRef(null);
+  const userButtonRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) && 
+          userButtonRef.current && !userButtonRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close dropdown when pressing Escape key
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && isDropdownOpen) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isDropdownOpen]);
 
   // Fetch notifications when user is logged in
   useEffect(() => {
@@ -269,7 +300,6 @@ const Navbar = () => {
         setNotifications(res.data.unreadCount || 0);
       }
     } catch (error) {
-      // Silently fail - notifications endpoint might not exist yet
       console.log('Notifications not available yet');
       setNotifications(0);
     }
@@ -278,15 +308,24 @@ const Navbar = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+    setIsDropdownOpen(false);
   };
 
   const handleNotificationClick = () => {
-    // Check if notifications page exists, if not, just show message
     try {
       navigate('/notifications');
+      setIsDropdownOpen(false);
     } catch (error) {
       alert('Notifications feature coming soon!');
     }
+  };
+
+  const handleMenuItemClick = () => {
+    setIsDropdownOpen(false);
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
   };
 
   return (
@@ -324,11 +363,12 @@ const Navbar = () => {
                 )}
               </IconButton>
 
-              <UserMenu>
+              <UserMenu ref={dropdownRef}>
                 <UserButton
+                  ref={userButtonRef}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  onClick={toggleDropdown}
                 >
                   <FiUser />
                   <span>{user?.profile?.full_name?.split(' ')[0] || 'User'}</span>
@@ -341,15 +381,29 @@ const Navbar = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                     >
-                      {/* FIXED: Correct paths based on user type */}
-                      <DropdownItem to={user?.user_type === 'job_seeker' ? '/seeker/profile' : '/employer/profile'}>
+                      <DropdownItem 
+                        to={user?.user_type === 'job_seeker' ? '/seeker/profile' : '/employer/profile'}
+                        onClick={handleMenuItemClick}
+                      >
                         <FiUser /> Profile
                       </DropdownItem>
-                      <DropdownItem to={user?.user_type === 'job_seeker' ? '/seeker/dashboard' : '/employer/dashboard'}>
+                      <DropdownItem 
+                        to={user?.user_type === 'job_seeker' ? '/seeker/dashboard' : '/employer/dashboard'}
+                        onClick={handleMenuItemClick}
+                      >
                         <FiHome /> Dashboard
                       </DropdownItem>
+                      <DropdownItem 
+                        to="/messages"
+                        onClick={handleMenuItemClick}
+                      >
+                        <FiMessageSquare /> Messages
+                      </DropdownItem>
                       {user?.user_type === 'employer' && (
-                        <DropdownItem to="/employer/post-job">
+                        <DropdownItem 
+                          to="/employer/post-job"
+                          onClick={handleMenuItemClick}
+                        >
                           <FiBriefcase /> Post Job
                         </DropdownItem>
                       )}
@@ -398,6 +452,9 @@ const Navbar = () => {
                 Dashboard
               </MobileNavLink>
             )}
+            <MobileNavLink to="/messages" onClick={() => setIsMenuOpen(false)}>
+              Messages
+            </MobileNavLink>
             {!user && (
               <>
                 <MobileNavLink to="/login" onClick={() => setIsMenuOpen(false)}>

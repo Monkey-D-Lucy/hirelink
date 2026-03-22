@@ -33,6 +33,7 @@ import CompanyProfile from './pages/employer/CompanyProfile';
 import PrivateRoute from './components/common/PrivateRoute';
 import AuthSuccess from './pages/auth/AuthSuccess';
 import Notifications from './pages/Notifications';
+import Messages from './pages/Messages';  // ADD THIS IMPORT
 
 function App() {
   return (
@@ -78,6 +79,13 @@ function App() {
           <Route path="/notifications" element={
             <PrivateRoute>
               <Notifications />
+            </PrivateRoute>
+          } />
+          
+          {/* Messages route - ADD THIS */}
+          <Route path="/messages" element={
+            <PrivateRoute>
+              <Messages />
             </PrivateRoute>
           } />
           

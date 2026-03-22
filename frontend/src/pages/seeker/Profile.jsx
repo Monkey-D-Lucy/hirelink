@@ -5,7 +5,8 @@ import {
   FiEdit2, FiSave, FiX, FiCamera, FiMapPin,
   FiBriefcase, FiMail, FiPhone, FiLink,
   FiGithub, FiLinkedin, FiAward, FiBookOpen,
-  FiGlobe, FiUpload, FiCheckCircle, FiEye, FiDownload
+  FiGlobe, FiUpload, FiCheckCircle, FiEye, FiDownload,
+  FiPlus, FiTrash2
 } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
@@ -248,6 +249,43 @@ const ExperienceItem = styled.div`
   }
 `;
 
+const CertificateCard = styled.div`
+  padding: ${theme.spacing.md};
+  border: 1px solid ${theme.colors.border};
+  border-radius: ${theme.borderRadius.medium};
+  margin-bottom: ${theme.spacing.md};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: ${theme.spacing.md};
+
+  &:hover {
+    border-color: ${theme.colors.primary};
+  }
+`;
+
+const CertificateInfo = styled.div`
+  flex: 1;
+
+  h4 {
+    font-size: 16px;
+    margin-bottom: ${theme.spacing.xs};
+  }
+
+  p {
+    color: ${theme.colors.text.secondary};
+    font-size: 13px;
+    margin-bottom: ${theme.spacing.xs};
+  }
+
+  small {
+    color: ${theme.colors.text.light};
+    font-size: 11px;
+    font-family: monospace;
+  }
+`;
+
 const EditForm = styled(motion.div)`
   position: fixed;
   top: 0;
@@ -413,7 +451,7 @@ const ActionButton = styled(motion.button)`
   font-size: 13px;
   font-weight: 500;
   display: flex;
-  align-items: center;
+-align-items: center;
   gap: ${theme.spacing.xs};
   background: ${theme.colors.primary}10;
   color: ${theme.colors.primary};
@@ -431,23 +469,38 @@ const SeekerProfile = () => {
   const [formData, setFormData] = useState({});
   const [skills, setSkills] = useState([]);
   const [newSkill, setNewSkill] = useState('');
+  const [certificates, setCertificates] = useState([]);
+  const [uploadingCert, setUploadingCert] = useState(false);
 
   useEffect(() => {
     if (user?.profile) {
       setProfile(user.profile);
       setSkills(user.profile.skills?.split(',').map(s => s.trim()).filter(s => s) || []);
     }
+    fetchCertificates();
   }, [user]);
+
+  const fetchCertificates = async () => {
+    try {
+      const res = await API.get('/certificates');
+      if (res.data.success) {
+        setCertificates(res.data.certificates || []);
+      }
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
+    }
+  };
 
   const calculateProfileStrength = () => {
     let strength = 0;
-    if (profile?.full_name) strength += 15;
-    if (profile?.headline) strength += 15;
-    if (profile?.about) strength += 20;
-    if (skills.length > 0) strength += 20;
+    if (profile?.full_name) strength += 10;
+    if (profile?.headline) strength += 10;
+    if (profile?.about) strength += 15;
+    if (skills.length > 0) strength += 15;
     if (profile?.resume_url) strength += 15;
-    if (profile?.profile_pic_url) strength += 15;
-    return strength;
+    if (profile?.profile_pic_url) strength += 10;
+    if (certificates.length > 0) strength += 15;
+    return Math.min(100, strength);
   };
 
   const handleEdit = (section) => {
@@ -488,25 +541,24 @@ const SeekerProfile = () => {
   };
 
   const handleImageUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append('profile_pic', file);  // Keep this exact field name
-  // REMOVE the 'type' field - we don't need it anymore
+    const formData = new FormData();
+    formData.append('profile_pic', file);
 
-  try {
-    const res = await API.post('/users/upload-image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    
-    setProfile(prev => ({ ...prev, profile_pic_url: res.data.url }));
-    toast.success('Profile picture updated');
-  } catch (error) {
-    console.error('Upload error:', error.response?.data);
-    toast.error(error.response?.data?.message || 'Error uploading image');
-  }
-};
+    try {
+      const res = await API.post('/users/upload-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setProfile(prev => ({ ...prev, profile_pic_url: res.data.url }));
+      toast.success('Profile picture updated');
+    } catch (error) {
+      console.error('Upload error:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Error uploading image');
+    }
+  };
 
   const handleResumeUpload = async (e) => {
     const file = e.target.files[0];
@@ -525,6 +577,47 @@ const SeekerProfile = () => {
     } catch (error) {
       console.error('Resume upload error:', error);
       toast.error(error.response?.data?.message || 'Error uploading resume');
+    }
+  };
+
+  const handleCertificateUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const certFormData = new FormData();
+    certFormData.append('certificate', file);
+    certFormData.append('certificate_name', formData.certificate_name || 'My Certificate');
+    certFormData.append('issuing_organization', formData.issuing_organization || '');
+    certFormData.append('issue_date', formData.issue_date || '');
+
+    setUploadingCert(true);
+    try {
+      const res = await API.post('/certificates', certFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (res.data.success) {
+        toast.success('Certificate uploaded successfully! SHA-256 hash generated.');
+        fetchCertificates();
+        setEditing(null);
+      }
+    } catch (error) {
+      console.error('Certificate upload error:', error);
+      toast.error(error.response?.data?.message || 'Error uploading certificate');
+    } finally {
+      setUploadingCert(false);
+    }
+  };
+
+  const handleDeleteCertificate = async (certId) => {
+    if (!window.confirm('Are you sure you want to delete this certificate?')) return;
+    
+    try {
+      await API.delete(`/certificates/${certId}`);
+      toast.success('Certificate deleted');
+      fetchCertificates();
+    } catch (error) {
+      toast.error('Error deleting certificate');
     }
   };
 
@@ -685,6 +778,46 @@ const SeekerProfile = () => {
 
         <Section>
           <SectionHeader>
+            <h3><FiAward /> Certificates & Badges</h3>
+            <EditButton
+              onClick={() => handleEdit('certificate')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <FiPlus /> Add Certificate
+            </EditButton>
+          </SectionHeader>
+          
+          {certificates.length > 0 ? (
+            certificates.map((cert) => (
+              <CertificateCard key={cert.certificate_id}>
+                <CertificateInfo>
+                  <h4>{cert.certificate_name}</h4>
+                  <p>Issued by: {cert.issuing_organization || 'Not specified'}</p>
+                  <p>Issue Date: {cert.issue_date ? new Date(cert.issue_date).toLocaleDateString() : 'Not specified'}</p>
+                  <small>SHA-256: {cert.certificate_hash?.substring(0, 32)}...</small>
+                </CertificateInfo>
+                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
+                  <ActionButton
+                    onClick={() => window.open(`/certificates/verify/${cert.certificate_hash}`, '_blank')}
+                  >
+                    <FiEye /> Verify
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => handleDeleteCertificate(cert.certificate_id)}
+                  >
+                    <FiTrash2 /> Delete
+                  </ActionButton>
+                </div>
+              </CertificateCard>
+            ))
+          ) : (
+            <p style={{ color: theme.colors.text.light }}>No certificates added yet. Add your certifications to build trust!</p>
+          )}
+        </Section>
+
+        <Section>
+          <SectionHeader>
             <h3><FiUpload /> Resume</h3>
           </SectionHeader>
           {profile?.resume_url ? (
@@ -734,9 +867,13 @@ const SeekerProfile = () => {
               exit={{ scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3>Edit {editing === 'basic' ? 'Basic Information' : 
-                         editing === 'about' ? 'About' : 
-                         editing === 'skills' ? 'Skills' : 'Experience'}</h3>
+              <h3>
+                {editing === 'basic' && 'Edit Basic Information'}
+                {editing === 'about' && 'Edit About'}
+                {editing === 'skills' && 'Edit Skills'}
+                {editing === 'experience' && 'Edit Experience'}
+                {editing === 'certificate' && 'Add Certificate'}
+              </h3>
               
               {editing === 'basic' && (
                 <>
@@ -909,6 +1046,49 @@ const SeekerProfile = () => {
                 </>
               )}
 
+              {editing === 'certificate' && (
+                <>
+                  <FormGroup>
+                    <label>Certificate Name *</label>
+                    <input
+                      type="text"
+                      value={formData?.certificate_name || ''}
+                      onChange={(e) => setFormData({ ...formData, certificate_name: e.target.value })}
+                      placeholder="e.g., JavaScript Certification"
+                      required
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <label>Issuing Organization</label>
+                    <input
+                      type="text"
+                      value={formData?.issuing_organization || ''}
+                      onChange={(e) => setFormData({ ...formData, issuing_organization: e.target.value })}
+                      placeholder="e.g., Google, Microsoft"
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <label>Issue Date</label>
+                    <input
+                      type="date"
+                      value={formData?.issue_date || ''}
+                      onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <label>Certificate File *</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.png"
+                      onChange={handleCertificateUpload}
+                    />
+                    <small style={{ color: theme.colors.text.light, display: 'block', marginTop: theme.spacing.xs }}>
+                      PDF, JPG, PNG (Max 5MB) - SHA-256 hash will be generated for verification
+                    </small>
+                  </FormGroup>
+                </>
+              )}
+
               <FormActions>
                 <CancelButton
                   onClick={() => setEditing(null)}
@@ -917,14 +1097,16 @@ const SeekerProfile = () => {
                 >
                   Cancel
                 </CancelButton>
-                <SaveButton
-                  onClick={handleSave}
-                  disabled={loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <FiSave /> {loading ? 'Saving...' : 'Save Changes'}
-                </SaveButton>
+                {editing !== 'certificate' && (
+                  <SaveButton
+                    onClick={handleSave}
+                    disabled={loading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <FiSave /> {loading ? 'Saving...' : 'Save Changes'}
+                  </SaveButton>
+                )}
               </FormActions>
             </EditCard>
           </EditForm>
