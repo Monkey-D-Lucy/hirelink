@@ -283,6 +283,7 @@ const JobDetail = () => {
     }
   };
 
+  // 🔴 FIX: Added default cover letter
   const handleApply = async () => {
     if (!user) {
       navigate('/login');
@@ -298,7 +299,7 @@ const JobDetail = () => {
     try {
       await API.post('/applications', {
         job_id: id,
-        cover_letter: coverLetter
+        cover_letter: coverLetter.trim() || "I am very interested in this position and believe my skills align well with your requirements. I would love the opportunity to discuss how I can contribute to your team."
       });
       
       toast.success('Application submitted successfully!');
@@ -309,7 +310,8 @@ const JobDetail = () => {
       if (error.response?.status === 400) {
         toast.error('You have already applied for this job');
       } else {
-        toast.error('Error submitting application');
+        console.error('Apply error:', error.response?.data);
+        toast.error(error.response?.data?.message || 'Error submitting application');
       }
     } finally {
       setApplying(false);
@@ -541,7 +543,7 @@ const JobDetail = () => {
             )}
 
             {!user && (
-              <p style={{ textAlign: 'center', color: theme.colors.text.light, fontSize: '14px' }}>
+              <p style={{ textAlign: 'center', color: theme.colors.text.light, fontize: '14px' }}>
                 Please <a href="/login">login</a> to apply
               </p>
             )}

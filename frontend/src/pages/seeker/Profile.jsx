@@ -503,16 +503,22 @@ const SeekerProfile = () => {
     return Math.min(100, strength);
   };
 
+  // 🔴 FIX: Remove user_type when setting form data
   const handleEdit = (section) => {
-    setFormData(profile || {});
+    const { user_type, ...profileWithoutType } = profile || {};
+    setFormData(profileWithoutType);
     setEditing(section);
   };
 
+  // 🔴 FIX: Remove user_type from data being sent
   const handleSave = async () => {
     setLoading(true);
     try {
+      // Remove user_type if it somehow exists
+      const { user_type, ...safeData } = formData;
+      
       const updatedData = {
-        ...formData,
+        ...safeData,
         skills: skills.join(', ')
       };
       

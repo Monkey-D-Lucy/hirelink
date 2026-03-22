@@ -145,11 +145,16 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-// Update profile
+// Update profile - FIXED: Added protection against user_type change
 exports.updateProfile = async (req, res) => {
     try {
         const userId = req.user.user_id;
         const updates = req.body;
+        
+        // 🔴 FIX: Prevent user_type from being changed
+        if (updates.user_type) {
+            delete updates.user_type;
+        }
         
         const [users] = await db.query(
             'SELECT user_type FROM users WHERE user_id = ?',
@@ -323,7 +328,6 @@ exports.uploadImage = (req, res) => {
     });
 };
 
-// ============= ADD THIS MISSING FUNCTION =============
 // Upload resume
 exports.uploadResume = (req, res) => {
     const uploadSingle = upload.single('resume');
@@ -368,7 +372,6 @@ exports.uploadResume = (req, res) => {
         }
     });
 };
-// =====================================================
 
 // Change password
 exports.changePassword = async (req, res) => {

@@ -1,10 +1,18 @@
 const db = require('../config/db');
 
-// Apply for a job
+// Apply for a job - FIXED: Added user type check
 exports.applyForJob = async (req, res) => {
     try {
         const userId = req.user.user_id;
         const { job_id, cover_letter } = req.body;
+        
+        // 🔴 FIX: Verify user is a job seeker first
+        if (req.user.user_type !== 'job_seeker') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only job seekers can apply for jobs' 
+            });
+        }
         
         // Get seeker_id
         const [seeker] = await db.query(
@@ -44,7 +52,7 @@ exports.applyForJob = async (req, res) => {
                 `INSERT INTO applications 
                  (job_id, seeker_id, cover_letter, resume_used) 
                  VALUES (?, ?, ?, ?)`,
-                [job_id, seekerId, cover_letter, seeker[0].resume_url]
+                [job_id, seekerId, cover_letter || 'I am interested in this position', seeker[0].resume_url]
             );
             
             // Update job applications count
