@@ -543,7 +543,7 @@ const JobDetail = () => {
             )}
 
             {!user && (
-              <p style={{ textAlign: 'center', color: theme.colors.text.light, fontize: '14px' }}>
+              <p style={{ textAlign: 'center', color: theme.colors.text.light, fontSize: '14px' }}>
                 Please <a href="/login">login</a> to apply
               </p>
             )}
