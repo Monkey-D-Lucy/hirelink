@@ -51,20 +51,26 @@ exports.uploadCertificate = (req, res) => {
         
         try {
             const userId = req.user.user_id;
-            const { certificate_name, issuing_organization, issue_date, expiry_date } = req.body;
+            let { certificate_name, issuing_organization, issue_date, expiry_date } = req.body;
             
             // Read file and generate hash
             const fileBuffer = fs.readFileSync(req.file.path);
             const hash = generateHash(fileBuffer);
             
-            const fileUrl = `${req.protocol}://${req.get('host')}/${req.file.path}`;
+            // Fix file path for Windows (replace backslashes with forward slashes)
+            const normalizedPath = req.file.path.replace(/\\/g, '/');
+            const fileUrl = `${req.protocol}://${req.get('host')}/${normalizedPath}`;
+            
+            // Handle empty date values - convert empty strings to NULL
+            const validIssueDate = issue_date && issue_date.trim() !== '' ? issue_date : null;
+            const validExpiryDate = expiry_date && expiry_date.trim() !== '' ? expiry_date : null;
             
             // Insert certificate
             const [result] = await db.query(
                 `INSERT INTO certificates 
                  (user_id, certificate_name, issuing_organization, issue_date, expiry_date, certificate_hash, certificate_url)
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [userId, certificate_name, issuing_organization, issue_date, expiry_date, hash, fileUrl]
+                [userId, certificate_name, issuing_organization, validIssueDate, validExpiryDate, hash, fileUrl]
             );
             
             res.status(201).json({
@@ -73,7 +79,7 @@ exports.uploadCertificate = (req, res) => {
                 certificate: {
                     id: result.insertId,
                     name: certificate_name,
-                    hash,
+                    hash: hash,
                     url: fileUrl
                 }
             });
@@ -88,7 +94,7 @@ exports.uploadCertificate = (req, res) => {
             
             res.status(500).json({ 
                 success: false, 
-                message: 'Server error' 
+                message: 'Server error: ' + error.message
             });
         }
     });
@@ -200,7 +206,11 @@ exports.deleteCertificate = async (req, res) => {
         
         // Delete file
         if (certificates[0].certificate_url) {
-            const filePath = certificates[0].certificate_url.replace(`${req.protocol}://${req.get('host')}/`, '');
+            // Extract file path from URL
+            const urlParts = certificates[0].certificate_url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
+            const filePath = path.join('uploads', 'certificates', fileName);
+            
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }

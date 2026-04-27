@@ -627,26 +627,36 @@ const SeekerProfile = () => {
     certFormData.append('certificate', file);
     certFormData.append('certificate_name', formData.certificate_name || 'My Certificate');
     certFormData.append('issuing_organization', formData.issuing_organization || '');
-    certFormData.append('issue_date', formData.issue_date || '');
-
+    
+    // Send null if date is empty
+    const issueDate = formData.issue_date || '';
+    certFormData.append('issue_date', issueDate || ''); // Will be handled by backend
+    
     setUploadingCert(true);
     try {
-      const res = await API.post('/certificates', certFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      if (res.data.success) {
-        toast.success('Certificate uploaded successfully! SHA-256 hash generated.');
-        fetchCertificates();
-        setEditing(null);
-      }
+        const res = await API.post('/certificates', certFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if (res.data.success) {
+            toast.success('Certificate uploaded successfully! SHA-256 hash generated.');
+            fetchCertificates();
+            setEditing(null);
+            // Clear form data
+            setFormData({
+                ...formData,
+                certificate_name: '',
+                issuing_organization: '',
+                issue_date: ''
+            });
+        }
     } catch (error) {
-      console.error('Certificate upload error:', error);
-      toast.error(error.response?.data?.message || 'Error uploading certificate');
+        console.error('Certificate upload error:', error);
+        toast.error(error.response?.data?.message || 'Error uploading certificate');
     } finally {
-      setUploadingCert(false);
+        setUploadingCert(false);
     }
-  };
+};
 
   const handleDeleteCertificate = async (certId) => {
     if (!window.confirm('Are you sure you want to delete this certificate?')) return;
