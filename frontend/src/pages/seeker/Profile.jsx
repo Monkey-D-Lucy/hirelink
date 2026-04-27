@@ -5,7 +5,7 @@ import {
   FiEdit2, FiSave, FiX, FiCamera, FiMapPin,
   FiBriefcase, FiMail, FiPhone, FiLink,
   FiGithub, FiLinkedin, FiAward, FiBookOpen,
-  FiGlobe, FiUpload, FiCheckCircle, FiEye, FiDownload,
+  FiUpload, FiCheckCircle, FiEye, FiDownload,
   FiPlus, FiTrash2
 } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
@@ -433,7 +433,7 @@ const StrengthBar = styled.div`
 
 const StrengthFill = styled.div`
   height: 100%;
-  width: ${props => props.percentage || 0}%;
+  width: ${props => props.$percentage || 0}%;
   background: ${theme.gradients.primary};
   border-radius: ${theme.borderRadius.small};
   transition: width 0.3s ease;
@@ -451,7 +451,7 @@ const ActionButton = styled(motion.button)`
   font-size: 13px;
   font-weight: 500;
   display: flex;
--align-items: center;
+  align-items: center;
   gap: ${theme.spacing.xs};
   background: ${theme.colors.primary}10;
   color: ${theme.colors.primary};
@@ -463,7 +463,7 @@ const ActionButton = styled(motion.button)`
 
 const SeekerProfile = () => {
   const { user, updateUser } = useAuth();
-  const [profile, setProfile] = useState(user?.profile || {});
+  const [profile, setProfile] = useState({});
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({});
@@ -472,11 +472,30 @@ const SeekerProfile = () => {
   const [certificates, setCertificates] = useState([]);
   const [uploadingCert, setUploadingCert] = useState(false);
 
+  // FIXED: Fetch profile data from API with correct response handling
   useEffect(() => {
-    if (user?.profile) {
-      setProfile(user.profile);
-      setSkills(user.profile.skills?.split(',').map(s => s.trim()).filter(s => s) || []);
-    }
+    const fetchProfileData = async () => {
+      try {
+        const res = await API.get('/users/profile');
+        console.log('Profile API response:', res.data);
+        
+        // Your API returns { success: true, user: {...} }
+        const userData = res.data.user || res.data;
+        const profileData = userData.profile || userData;
+        
+        setProfile(profileData);
+        setSkills(profileData.skills?.split(',').map(s => s.trim()).filter(s => s) || []);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        // Fallback to user context if API fails
+        if (user?.profile) {
+          setProfile(user.profile);
+          setSkills(user.profile.skills?.split(',').map(s => s.trim()).filter(s => s) || []);
+        }
+      }
+    };
+    
+    fetchProfileData();
     fetchCertificates();
   }, [user]);
 
@@ -491,10 +510,11 @@ const SeekerProfile = () => {
     }
   };
 
+  // FIXED: Calculate profile strength with better checks
   const calculateProfileStrength = () => {
     let strength = 0;
-    if (profile?.full_name) strength += 10;
-    if (profile?.headline) strength += 10;
+    if (profile?.full_name && profile.full_name !== 'Your Name') strength += 10;
+    if (profile?.headline && profile.headline !== 'Add a professional headline') strength += 10;
     if (profile?.about) strength += 15;
     if (skills.length > 0) strength += 15;
     if (profile?.resume_url) strength += 15;
@@ -503,18 +523,16 @@ const SeekerProfile = () => {
     return Math.min(100, strength);
   };
 
-  // 🔴 FIX: Remove user_type when setting form data
   const handleEdit = (section) => {
     const { user_type, ...profileWithoutType } = profile || {};
     setFormData(profileWithoutType);
     setEditing(section);
   };
 
-  // 🔴 FIX: Remove user_type from data being sent
+  // FIXED: Handle save with correct response parsing
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Remove user_type if it somehow exists
       const { user_type, ...safeData } = formData;
       
       const updatedData = {
@@ -522,9 +540,24 @@ const SeekerProfile = () => {
         skills: skills.join(', ')
       };
       
+      console.log('Saving data:', updatedData);
+      
       const res = await API.put('/users/profile', updatedData);
-      updateUser({ ...user, profile: res.data.profile });
-      setProfile(res.data.profile);
+      console.log('Save response:', res.data);
+      
+      // Your API returns { success: true, user: {...} }
+      const userData = res.data.user || res.data;
+      const updatedProfile = userData.profile || userData;
+      
+      setProfile(updatedProfile);
+      updateUser({ ...user, profile: updatedProfile });
+      
+      // Update skills from saved data
+      const updatedSkills = updatedProfile.skills 
+        ? updatedProfile.skills.split(',').map(s => s.trim()).filter(s => s)
+        : skills;
+      setSkills(updatedSkills);
+      
       toast.success('Profile updated successfully');
       setEditing(null);
     } catch (error) {
@@ -680,7 +713,7 @@ const SeekerProfile = () => {
           <ProfileStrength>
             <h4>Profile Strength</h4>
             <StrengthBar>
-              <StrengthFill percentage={calculateProfileStrength()} />
+              <StrengthFill $percentage={calculateProfileStrength()} />
             </StrengthBar>
           </ProfileStrength>
 
@@ -770,7 +803,7 @@ const SeekerProfile = () => {
               <FiEdit2 /> Add Experience
             </EditButton>
           </SectionHeader>
-          {profile?.experience ? (
+          {profile?.experience && profile.experience.position ? (
             <ExperienceItem>
               <h4>{profile.experience.position}</h4>
               <h5>{profile.experience.company}</h5>
@@ -999,6 +1032,9 @@ const SeekerProfile = () => {
                       </SaveButton>
                     </div>
                   </FormGroup>
+                  <p style={{ fontSize: '12px', color: theme.colors.text.light, marginTop: theme.spacing.md }}>
+                    Note: Don't forget to click "Save Changes" to save your skills
+                  </p>
                 </>
               )}
 
@@ -1087,7 +1123,13 @@ const SeekerProfile = () => {
                       type="file"
                       accept=".pdf,.jpg,.png"
                       onChange={handleCertificateUpload}
+                      disabled={uploadingCert}
                     />
+                    {uploadingCert && (
+                      <small style={{ color: theme.colors.primary, display: 'block', marginTop: theme.spacing.xs }}>
+                        Uploading and generating SHA-256 hash...
+                      </small>
+                    )}
                     <small style={{ color: theme.colors.text.light, display: 'block', marginTop: theme.spacing.xs }}>
                       PDF, JPG, PNG (Max 5MB) - SHA-256 hash will be generated for verification
                     </small>

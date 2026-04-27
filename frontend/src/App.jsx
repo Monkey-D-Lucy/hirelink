@@ -29,11 +29,14 @@ import ManageJobs from './pages/employer/ManageJobs';
 import Applicants from './pages/employer/Applicants';
 import CompanyProfile from './pages/employer/CompanyProfile';
 
+// Certificate Verification Page
+import CertificateVerify from './pages/CertificateVerify';  // ← ADD THIS
+
 // Common Components
 import PrivateRoute from './components/common/PrivateRoute';
 import AuthSuccess from './pages/auth/AuthSuccess';
 import Notifications from './pages/Notifications';
-import Messages from './pages/Messages';  // ADD THIS IMPORT
+import Messages from './pages/Messages';
 
 function App() {
   return (
@@ -75,6 +78,9 @@ function App() {
           <Route path="/jobs" element={<JobListings />} />
           <Route path="/job/:id" element={<JobDetail />} />
           
+          {/* Certificate Verification - Public route (MUST be before catch-all) */}
+          <Route path="/certificates/verify/:hash" element={<CertificateVerify />} />
+          
           {/* Notifications route */}
           <Route path="/notifications" element={
             <PrivateRoute>
@@ -82,7 +88,7 @@ function App() {
             </PrivateRoute>
           } />
           
-          {/* Messages route - ADD THIS */}
+          {/* Messages route */}
           <Route path="/messages" element={
             <PrivateRoute>
               <Messages />

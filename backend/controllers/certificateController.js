@@ -130,7 +130,8 @@ exports.verifyCertificate = async (req, res) => {
                     CASE 
                         WHEN u.user_type = 'job_seeker' THEN js.full_name
                         ELSE NULL
-                    END as owner_name
+                    END as owner_name,
+                    js.full_name as user_full_name
              FROM certificates c
              JOIN users u ON c.user_id = u.user_id
              LEFT JOIN job_seekers js ON u.user_id = js.user_id
@@ -141,23 +142,30 @@ exports.verifyCertificate = async (req, res) => {
         if (certificates.length === 0) {
             return res.status(404).json({ 
                 success: false, 
-                message: 'Certificate not found' 
+                message: 'Certificate not found or invalid hash',
+                isValid: false
             });
         }
         
         const certificate = certificates[0];
         
+        // Check if certificate is expired
+        const isExpired = certificate.expiry_date && new Date(certificate.expiry_date) < new Date();
+        
         res.json({
             success: true,
-            verified: true,
+            isValid: !isExpired,
             certificate: {
-                name: certificate.certificate_name,
+                certificate_id: certificate.certificate_id,
+                certificate_name: certificate.certificate_name,
                 issuing_organization: certificate.issuing_organization,
                 issue_date: certificate.issue_date,
                 expiry_date: certificate.expiry_date,
-                owner: certificate.owner_name,
-                uploaded_at: certificate.created_at,
-                is_verified: certificate.is_verified
+                certificate_hash: certificate.certificate_hash,
+                certificate_url: certificate.certificate_url,
+                owner_name: certificate.user_full_name || certificate.owner_name || 'Certificate Owner',
+                verified_at: certificate.created_at,
+                is_expired: isExpired
             }
         });
         
@@ -165,7 +173,8 @@ exports.verifyCertificate = async (req, res) => {
         console.error('Verify certificate error:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Server error' 
+            message: 'Server error',
+            isValid: false
         });
     }
 };
