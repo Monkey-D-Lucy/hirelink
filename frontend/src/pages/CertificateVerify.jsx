@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiXCircle, FiDownload, FiShare2, FiAward } from 'react-icons/fi';
+import { FiCheckCircle, FiXCircle, FiDownload, FiShare2, FiArrowLeft } from 'react-icons/fi';
 import API from '../services/api';
 import { theme } from '../styles/theme';
 import toast from 'react-hot-toast';
@@ -30,8 +30,8 @@ const StatusIcon = styled.div`
   width: 80px;
   height: 80px;
   border-radius: ${theme.borderRadius.round};
-  background: ${props => props.isValid ? theme.colors.success + '20' : theme.colors.danger + '20'};
-  color: ${props => props.isValid ? theme.colors.success : theme.colors.danger};
+  background: ${props => props.$isValid ? theme.colors.success + '20' : theme.colors.danger + '20'};
+  color: ${props => props.$isValid ? theme.colors.success : theme.colors.danger};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,7 +49,7 @@ const StatusText = styled.div`
   font-size: 18px;
   font-weight: 600;
   margin-bottom: ${theme.spacing.lg};
-  color: ${props => props.isValid ? theme.colors.success : theme.colors.danger};
+  color: ${props => props.$isValid ? theme.colors.success : theme.colors.danger};
 `;
 
 const CertificateInfo = styled.div`
@@ -71,7 +71,7 @@ const InfoRow = styled.div`
   strong {
     color: ${theme.colors.text.primary};
     display: inline-block;
-    width: 120px;
+    width: 140px;
   }
   
   span {
@@ -95,13 +95,14 @@ const ButtonGroup = styled.div`
   gap: ${theme.spacing.md};
   justify-content: center;
   margin-top: ${theme.spacing.xl};
+  flex-wrap: wrap;
 `;
 
 const Button = styled(motion.button)`
   padding: ${theme.spacing.md} ${theme.spacing.xl};
-  background: ${props => props.primary ? theme.gradients.primary : 'transparent'};
-  color: ${props => props.primary ? 'white' : theme.colors.primary};
-  border: ${props => props.primary ? 'none' : `1px solid ${theme.colors.primary}`};
+  background: ${props => props.$primary ? theme.gradients.primary : 'transparent'};
+  color: ${props => props.$primary ? 'white' : theme.colors.primary};
+  border: ${props => props.$primary ? 'none' : `1px solid ${theme.colors.primary}`};
   border-radius: ${theme.borderRadius.medium};
   font-weight: 600;
   display: inline-flex;
@@ -128,11 +129,7 @@ const CertificateVerify = () => {
   const [certificate, setCertificate] = useState(null);
   const [isValid, setIsValid] = useState(false);
 
-  useEffect(() => {
-    verifyCertificate();
-  }, [hash]);
-
-  const verifyCertificate = async () => {
+  const verifyCertificate = useCallback(async () => {
     try {
       setVerifying(true);
       const response = await API.get(`/certificates/verify/${hash}`);
@@ -155,7 +152,11 @@ const CertificateVerify = () => {
     } finally {
       setVerifying(false);
     }
-  };
+  }, [hash]);
+
+  useEffect(() => {
+    verifyCertificate();
+  }, [verifyCertificate]);
 
   const handleDownload = () => {
     if (certificate?.certificate_url) {
@@ -167,6 +168,11 @@ const CertificateVerify = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
     toast.success('Verification link copied to clipboard!');
+  };
+
+  // FIXED: Back button goes to profile page
+  const handleBack = () => {
+    navigate('/seeker/profile');
   };
 
   if (verifying) {
@@ -193,13 +199,13 @@ const CertificateVerify = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <StatusIcon isValid={isValid}>
+        <StatusIcon $isValid={isValid}>
           {isValid ? <FiCheckCircle /> : <FiXCircle />}
         </StatusIcon>
         
         <Title>Certificate Verification</Title>
         
-        <StatusText isValid={isValid}>
+        <StatusText $isValid={isValid}>
           {isValid ? '✓ VALID CERTIFICATE' : '✗ INVALID CERTIFICATE'}
         </StatusText>
         
@@ -221,7 +227,17 @@ const CertificateVerify = () => {
             </InfoRow>
             <InfoRow>
               <strong>Issue Date:</strong>
-              <span>{new Date(certificate.issue_date).toLocaleDateString()}</span>
+              <span>{certificate.issue_date ? new Date(certificate.issue_date).toLocaleDateString() : 'Not specified'}</span>
+            </InfoRow>
+            {certificate.expiry_date && (
+              <InfoRow>
+                <strong>Expiry Date:</strong>
+                <span>{new Date(certificate.expiry_date).toLocaleDateString()}</span>
+              </InfoRow>
+            )}
+            <InfoRow>
+              <strong>Owner:</strong>
+              <span>{certificate.owner_name || 'Certificate Owner'}</span>
             </InfoRow>
             <InfoRow>
               <strong>SHA-256 Hash:</strong>
@@ -242,11 +258,11 @@ const CertificateVerify = () => {
               <FiDownload /> Download Certificate
             </Button>
           )}
-          <Button primary onClick={handleShare} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button $primary onClick={handleShare} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <FiShare2 /> Share Verification
           </Button>
-          <Button onClick={() => navigate(-1)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            Back
+          <Button onClick={handleBack} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <FiArrowLeft /> Back
           </Button>
         </ButtonGroup>
       </VerifyCard>
